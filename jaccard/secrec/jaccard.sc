@@ -3,6 +3,8 @@ import shared3p;
 
 domain pd_shared3p shared3p;
 
+float epsilon = 0.000000001;
+
 template <domain D>
 D bool jaccard(D uint64 [[1]] a, D uint64 [[1]] b, D float32 t) {
     D bool result = true;
@@ -14,7 +16,7 @@ D bool jaccard(D uint64 [[1]] a, D uint64 [[1]] b, D float32 t) {
         }
     }
     jaccard_result = (float32)match_counter / ((float32)size(a) + (float32)size(b) - (float32)match_counter);
-    result = jaccard_result >= t;
+    result = (jaccard_result + epsilon) >= t;
     return result;
 }
 
