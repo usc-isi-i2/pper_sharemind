@@ -31,9 +31,9 @@ t pd_share3p float32 0.4 > input.bin
 
 ```
 # compile
-$ scc -o jaccard.sb -I/root/build-sdk/secrec-stdlib secrec/jaccard.sc
+$ scc -o secrec/jaccard.sb -I/root/build-sdk/secrec-stdlib secrec/jaccard.sc
 # run
-$ sharemind-emulator jaccard.sb --cfile=input.bin > result.bin
+$ sharemind-emulator secrec/jaccard.sb --cfile=input.bin > result.bin
 ```
 
 4. Decipher result.
