@@ -1,6 +1,7 @@
 #include <boost/program_options.hpp>
 #include <cstdint>
 #include <iostream>
+#include <fstream>
 #include <LogHard/Backend.h>
 #include <LogHard/FileAppender.h>
 #include <LogHard/Logger.h>
@@ -35,8 +36,20 @@ inline std::shared_ptr<void> newGlobalBuffer(void const * const data,
     return r;
 }
 
+inline std::string int_to_hex(std::int64_t i)
+{
+    std::stringstream stream;
+    stream << "0x" << std::hex << i;
+    return stream.str();
+}
+
 int main(int argc, char ** argv) {
     std::unique_ptr<sm::SystemControllerConfiguration> config;
+    auto a = std::make_shared<std::vector<std::int64_t>>();
+    std::vector<std::string> a_str;
+    auto b = std::make_shared<std::vector<std::int64_t>>();
+    std::vector<std::string> b_str;
+    float t;
 
     try {
         namespace po = boost::program_options;
@@ -46,9 +59,11 @@ int main(int argc, char ** argv) {
             "Usage: jaccard [OPTION]...\n\n"
             "Options");
         desc.add_options()
-            ("conf,c", po::value<std::string>(),
-                "Set the configuration file.")
-            ("help", "Print this help");
+            ("conf,c", po::value<std::string>(), "Set the configuration file.")
+            ("help", "Print this help")
+            ("a", po::value<std::vector<std::string>>()->multitoken(), "record1")
+            ("b", po::value<std::vector<std::string>>()->multitoken(), "record2")
+            ("t", po::value<float>(&t), "threshold");
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -58,9 +73,40 @@ int main(int argc, char ** argv) {
             std::cout << desc << std::endl;
             return EXIT_SUCCESS;
         }
+
+        if (!vm.count("a")) {
+            std::cout << "Please enter the a.\n\n"
+                << desc << std::endl;
+            return EXIT_FAILURE;
+        } else {
+            a_str = vm["a"].as< std::vector<std::string> >();
+            for (const auto s : a_str) {
+                a->push_back(std::stol(s, nullptr, 0));
+            }
+        }
+        if (!vm.count("b")) {
+            std::cout << "Please enter the b.\n\n"
+                << desc << std::endl;
+            return EXIT_FAILURE;
+        } else {
+            b_str = vm["b"].as< std::vector<std::string> >();
+            for (const auto s : b_str) {
+                b->push_back(std::stol(s, nullptr, 0));
+            }
+        }
+        if (!vm.count("t")) {
+            std::cout << "Please enter the t.\n\n"
+                << desc << std::endl;
+            return EXIT_FAILURE;
+        } else if(t < 0 or t > 1) {
+            std::cout << "t must be in range [0, 1].\n\n"
+                << desc << std::endl;
+            return EXIT_FAILURE;
+        }
+
         if (vm.count("conf")) {
             config = std::make_unique<sm::SystemControllerConfiguration>(
-                         vm["conf"].as<std::string>());
+                        vm["conf"].as<std::string>());
         } else {
             config = std::make_unique<sm::SystemControllerConfiguration>();
         }
@@ -77,29 +123,14 @@ int main(int argc, char ** argv) {
                     LogHard::FileAppender::OVERWRITE));
     const LogHard::Logger logger(logBackend);
 
-    logger.info() << "This is a stand alone Sharemind application demo";
-    logger.info() << "It privately computes the scalar product of the following two vectors";
-
-    // Generate some user for input
-    auto a = std::make_shared<std::vector<std::int64_t>>();
-    auto b = std::make_shared<std::vector<std::int64_t>>();
-    float *t = (float *) malloc(sizeof(float));
-
-    a->push_back(0x6c6c6f);
-    a->push_back(0x68656c);
-    a->push_back(0x656c6c);
-
-    b->push_back(0x6c6c65);
-    b->push_back(0x68656c);
-    b->push_back(0x656c6c);
-
-    *t = 0.4;
+    logger.info() << "Starting Jaccard computing...";
+    logger.info() << "Input parameters:";
 
     {
         std::ostringstream oss;
-        oss << "Record A: [ ";
+        oss << "a: [ ";
         for (const auto val : *a) {
-            oss << val << ' ';
+            oss << int_to_hex(val) << ' ';
         }
         oss << ']';
         logger.info() << oss.str();
@@ -107,12 +138,16 @@ int main(int argc, char ** argv) {
 
     {
         std::ostringstream oss;
-        oss << "Record B: [ ";
+        oss << "b: [ ";
         for (const auto val : *b) {
-            oss << val << ' ';
+            oss << int_to_hex(val) << ' ';
         }
         oss << ']';
         logger.info() << oss.str();
+    }
+
+    {
+        logger.info() << "t: " << t;
     }
 
     try {
@@ -137,7 +172,7 @@ int main(int argc, char ** argv) {
                 std::make_shared<sm::SystemController::Value>(
                     "pd_shared3p",
                     "float32",
-                    newGlobalBuffer(t,sizeof(float)),
+                    newGlobalBuffer(&t, sizeof(float)),
                     sizeof(float));
 
         // Run code

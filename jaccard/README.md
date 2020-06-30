@@ -59,5 +59,5 @@ make
 
 # start server and run
 sm_start_servers.sh
-./jaccard
+./jaccard --a 0x6c6c6f 0x68656c 0x656c6c --b 0x6c6c65 0x68656c 0x656c6c --t 0.4
 ```
