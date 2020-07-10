@@ -38,24 +38,15 @@ D bool jaccard_repeat(D uint64 [[1]] a, D uint64 [[1]] b, D float32 t) {
     // b_ext = [2, 2, 2, 4, 4, 4]
     // intersection = sum(a_ext == b_ext)
     uint64 [[1]] indices(size(a) * size(b));
-    uint idx;
     // a -> a_ext
-    idx = 0;
     for (uint j = 0; j < size(b); j++) {
-        for (uint i = 0; i < size(a); i++) {
-            indices[idx] = i;
-            idx++;
-        }
+        indices[j*size(a) : (j+1)*size(a)] = iota(size(a));
     }
     D uint64 [[1]] a_ext(size(a) * size(b));
     __syscall("shared3p::gather_uint64_vec", __domainid(D), a, a_ext, __cref indices);
     // b -> a_ext
-    idx = 0;
     for (uint j = 0; j < size(b); j++) {
-        for (uint i = 0; i < size(a); i++) {
-            indices[idx] = j;
-            idx++;
-        }
+        indices[j*size(a) : (j+1)*size(a)] = j;
     }
     D uint64 [[1]] b_ext(size(a) * size(b));
     __syscall("shared3p::gather_uint64_vec", __domainid(D), b, b_ext, __cref indices);
