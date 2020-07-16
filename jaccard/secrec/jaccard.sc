@@ -70,22 +70,22 @@ D bool jaccard_sort(D uint64 [[1]] a, D uint64 [[1]] b, D float32 t) {
 }
 
 template <domain D>
-D bool jaccard_join(D xor_uint32 [[1]] a, D xor_uint32 [[1]] b, D float32 t) {
-    // The input arrays a and b have to be in type xor_uint32
-    D xor_uint32 [[2]] a_ext (size(a), 1);
-    D xor_uint32 [[2]] b_ext (size(b), 1);
-    a_ext[:,0] = a;
-    b_ext[:,0] = b;
+D bool jaccard_join(D uint64 [[1]] a, D uint64 [[1]] b, D float32 t) {
+    // Though the input type is uint64, it will be treated as uint32
+    D xor_uint32 [[1]] a_xor32 = reshare((uint32)a);
+    D xor_uint32 [[1]] b_xor32 = reshare((uint32)b);
+    D xor_uint32 [[2]] a_ext (size(a_xor32), 1);
+    D xor_uint32 [[2]] b_ext (size(b_xor32), 1);
+    a_ext[:,0] = a_xor32;
+    b_ext[:,0] = b_xor32;
     D xor_uint32 [[2]] c = tableJoinAes128(a_ext, (uint)0, b_ext, (uint)0);
     D uint64 match_counter = shape(c)[0];
-    return jaccard(match_counter, size(a) + size(b), t);
+    return jaccard(match_counter, size(a_xor32) + size(b_xor32), t);
 }
 
 void main() {
     pd_shared3p uint64 [[1]] a = argument("a");
     pd_shared3p uint64 [[1]] b = argument("b");
-    // pd_shared3p xor_uint32 [[1]] a = argument("a");
-    // pd_shared3p xor_uint32 [[1]] b = argument("b");
     pd_shared3p float32 t = argument("t");
 
     // pd_shared3p bool result = jaccard_naive(a, b, t);
