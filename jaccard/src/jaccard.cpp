@@ -36,7 +36,7 @@ inline std::shared_ptr<void> newGlobalBuffer(void const * const data,
     return r;
 }
 
-inline std::string int_to_hex(std::int64_t i)
+inline std::string int_to_hex(std::uint64_t i)
 {
     std::stringstream stream;
     stream << "0x" << std::hex << i;
@@ -45,11 +45,12 @@ inline std::string int_to_hex(std::int64_t i)
 
 int main(int argc, char ** argv) {
     std::unique_ptr<sm::SystemControllerConfiguration> config;
-    auto a = std::make_shared<std::vector<std::int64_t>>();
+    auto a = std::make_shared<std::vector<std::uint64_t>>();
     std::vector<std::string> a_str;
-    auto b = std::make_shared<std::vector<std::int64_t>>();
+    auto b = std::make_shared<std::vector<std::uint64_t>>();
     std::vector<std::string> b_str;
     float t;
+    // std::string method;
 
     try {
         namespace po = boost::program_options;
@@ -63,7 +64,9 @@ int main(int argc, char ** argv) {
             ("help", "Print this help")
             ("a", po::value<std::vector<std::string>>()->multitoken(), "record1")
             ("b", po::value<std::vector<std::string>>()->multitoken(), "record2")
-            ("t", po::value<float>(&t), "threshold");
+            ("t", po::value<float>(&t), "threshold")
+            // ("method", po::value<std::string>()->default_value("naive"), "method (naive|repeat|sort)")
+            ;
 
         po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -103,6 +106,9 @@ int main(int argc, char ** argv) {
                 << desc << std::endl;
             return EXIT_FAILURE;
         }
+        // if (vm.count("method")) {
+        //     method = vm["method"].as<std::string>();
+        // }
 
         if (vm.count("conf")) {
             config = std::make_unique<sm::SystemControllerConfiguration>(
@@ -159,15 +165,15 @@ int main(int argc, char ** argv) {
         arguments["a"] =
                 std::make_shared<sm::SystemController::Value>(
                     "pd_shared3p",
-                    "int64",
-                    std::shared_ptr<std::int64_t>(a, a->data()),
-                    sizeof(std::int64_t) * a->size());
+                    "uint64",
+                    std::shared_ptr<std::uint64_t>(a, a->data()),
+                    sizeof(std::uint64_t) * a->size());
         arguments["b"] =
                 std::make_shared<sm::SystemController::Value>(
                     "pd_shared3p",
-                    "int64",
-                    std::shared_ptr<std::int64_t>(b, b->data()),
-                    sizeof(std::int64_t) * b->size());
+                    "uint64",
+                    std::shared_ptr<std::uint64_t>(b, b->data()),
+                    sizeof(std::uint64_t) * b->size());
         arguments["t"] =
                 std::make_shared<sm::SystemController::Value>(
                     "pd_shared3p",
@@ -181,12 +187,12 @@ int main(int argc, char ** argv) {
 
         // Print the result
         sm::SystemController::ValueMap::const_iterator it = results.find("result");
-    if (it == results.end()) {
-            logger.error() << "Missing 'result' value.";
-            return EXIT_FAILURE;
-	}
+        if (it == results.end()) {
+                logger.error() << "Missing 'result' value.";
+                return EXIT_FAILURE;
+        }
 
-	try {
+        try {
             auto result = it->second->getValue<bool>();
             logger.info() << "The result is: " << result;
         } catch (const sm::SystemController::Value::ParseException & e) {
@@ -194,8 +200,8 @@ int main(int argc, char ** argv) {
                 e.what();
             return EXIT_FAILURE;
         }
-
         return EXIT_SUCCESS;
+        
     } catch (const sm::SystemController::WorkerException & e) {
         logger.fatal() << "Multiple exceptions caught:";
         for (size_t i = 0u; i < e.numWorkers(); i++) {
