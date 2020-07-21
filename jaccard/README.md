@@ -72,7 +72,7 @@ sm_start_servers.sh
 Name = dbhost
 ```
 
-1. On each client, make a CSV file which has three columns:
+1. On each client, make a CSV file which has three columns (comma as delimiter):
 
 ```
 id,original_id,tokens
@@ -84,6 +84,7 @@ ds1_1,rec-160-dup-2,0x6672 0x7265 0x6520 0x2066 0x6620 0x2033 0x3331 0x3120
 Then upload data to keydb on each client. 
 
 ```
+# build/upload --key {string} --tokens {white-space separated numbers}
 tail -n +2 <input-csv-file.csv> | awk -F',' '{print "build/upload --key "$1" --tokens "$3}' | xargs -I {} sh -c "{}"
 ```
 
