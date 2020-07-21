@@ -59,7 +59,7 @@ int main(int argc, char ** argv) {
         desc.add_options()
             ("conf,c", po::value<std::string>(), "Set the configuration file.")
             ("help", "Print this help")
-            ("key,k", po::value<std::string>(), "key in Redis ({dataset id}-{record id})")
+            ("key,k", po::value<std::string>(), "key in Redis")
             ("tokens,t", po::value<std::vector<std::string>>()->multitoken(), "tokens,t")
             ;
 
