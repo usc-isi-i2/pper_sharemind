@@ -91,6 +91,6 @@ tail -n +2 <input-csv-file.csv> | awk -F',' '{print "build/upload --key "$1" --t
 2. Compute and find pairs from one of the clients.
 
 ```
-build/link --a_prefix ds1_ --a_size=2 --b_prefix ds2_ b_size=8 --t 0.5
+build/link --a_prefix ds1_ --a_size 2 --b_prefix ds2_ --b_size 8 --t 0.5
 ```
 
