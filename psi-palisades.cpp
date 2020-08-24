@@ -25,6 +25,8 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <time.h>
+#include <stdlib.h>
 
 using namespace std;
 using namespace lbcrypto;
@@ -36,13 +38,15 @@ map<string, vector<int64_t>> preProcessPlaintexts(
     map<string, vector<string>> set);
 
 int main() {
-  uint32_t plaintextModulus = 65537;
+  int plaintextModulus = 65537;
+  double sigma = 3.2;
   SecurityLevel securityLevel = HEStd_128_classic;
+  uint32_t depth = 2;
 
-  // Generate the cryptocontext
+  // Instantiate the crypto context
   CryptoContext<DCRTPoly> cc =
-      CryptoContextFactory<DCRTPoly>::genCryptoContextBGVrns(
-          0, plaintextModulus, securityLevel);
+      CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
+          plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
 
   // Enable features that to use
   cc->Enable(ENCRYPTION);
@@ -70,6 +74,8 @@ int main() {
   keyPair = cc->KeyGen();
 
   cc->EvalMultKeyGen(keyPair.secretKey);
+
+
   //
   //  vector<Ciphertext<DCRTPoly>> ciphertexts;
   //  map<string, vector<int64_t>>::iterator it;
@@ -81,9 +87,9 @@ int main() {
   //  }
 
   // set X
-  vector<int64_t> setX = {0, 1, 2, 3, 4, 5};
+  vector<int64_t> setX = {3,2,1,4};
   // set Y
-  vector<int64_t> setY = {0, 3, 4, 7, 9, 73};
+  vector<int64_t> setY = {1,2,3,5};
 
   vector<Plaintext> pX;
   vector<Plaintext> pY;
@@ -104,30 +110,37 @@ int main() {
     ciphertexts.push_back(cc->Encrypt(keyPair.publicKey, pY[i]));
   }
 
+
   // implementing Basic PSI protocol from: https://eprint.iacr.org/2017/299.pdf
   vector<Ciphertext<DCRTPoly>> returnCiphertexts;
   for (int i = 0; i < ciphertexts.size(); i++) {
-    // sample random non-zero plaintext (in this case from set Y)
-    int rand = std::rand() % pY.size();
-    Plaintext r = pY[rand];
-    // initializing d_i to be product of difference between each c_i and each x
-    // \in X
-    auto d = cc->EvalMult(cc->EvalSub(ciphertexts[i], pX[0]),
-                          cc->EvalSub(ciphertexts[i], pX[1]));
+    // sample random non-zero plaintext
+    Plaintext r = cc->MakeIntegerPlaintext((rand() % 100) + 1);
+    // initializing d_i to be product of difference between each c_i and each x in X
+    auto sub1 = cc->EvalSub(ciphertexts[i], pX[0]);
+    auto sub2 = cc->EvalSub(ciphertexts[i], pX[1]);
+    auto d = cc->EvalMult(sub1, sub2);
     for (int j = 2; j < pX.size(); j++) {
       d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], pX[j]));
     }
+    // decrypting the ciphertexts; if y+i : FHE.decrypt(d_i) = 0, then we know
+    // that y_i exists in X and is part of the set intersection.
     returnCiphertexts.push_back(cc->EvalMult(r, d));
   }
 
+  vector<int64_t> setIntersectionResult;
   for (int i = 0; i < returnCiphertexts.size(); i++) {
-    Plaintext plaintextMultResult;
+    Plaintext decryptResult;
     // decrypting the ciphertexts; if y+i : FHE.decrypt(d_i) = 0, then we know
     // that y_i exists in X and is part of the set intersection.
-    cc->Decrypt(keyPair.secretKey, returnCiphertexts[i], &plaintextMultResult);
-    cout << plaintextMultResult;
-    cout << endl;
+    cc->Decrypt(keyPair.secretKey, returnCiphertexts[i], &decryptResult);
+    if (decryptResult->GetIntegerValue() == 0) {
+      setIntersectionResult.push_back(setY[i]);
+    }
   }
+  cout << "set X: " << setX << endl;
+  cout << "set Y: " << setY << endl;
+  cout << "Set Intersection between sets X and Y: " << setIntersectionResult << endl;
 
   return 0;
 }
