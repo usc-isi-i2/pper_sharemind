@@ -43,10 +43,15 @@ int main() {
   SecurityLevel securityLevel = HEStd_128_classic;
   uint32_t depth = 2;
 
-  // Instantiate the crypto context
+  // Instantiate the BGVrns crypto context
   CryptoContext<DCRTPoly> cc =
-      CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
-          plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
+      CryptoContextFactory<DCRTPoly>::genCryptoContextBGVrns(
+          depth, plaintextModulus, securityLevel, sigma, depth, OPTIMIZED, BV);
+
+  // Instantiate the BFVrns crypto context
+//  CryptoContext<DCRTPoly> cc =
+//      CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
+//          plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
 
   // Enable features that to use
   cc->Enable(ENCRYPTION);
@@ -123,8 +128,6 @@ int main() {
     for (int j = 2; j < pX.size(); j++) {
       d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], pX[j]));
     }
-    // decrypting the ciphertexts; if y+i : FHE.decrypt(d_i) = 0, then we know
-    // that y_i exists in X and is part of the set intersection.
     returnCiphertexts.push_back(cc->EvalMult(r, d));
   }
 
