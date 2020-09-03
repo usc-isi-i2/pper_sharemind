@@ -27,6 +27,7 @@
 #include <map>
 #include <time.h>
 #include <stdlib.h>
+#include "csvstream.h"
 
 using namespace std;
 using namespace lbcrypto;
@@ -34,8 +35,11 @@ using namespace lbcrypto;
 vector<vector<string>> readFromCSVFile(string csvFilePath);
 vector<string> tokenHelper(int n, string record);
 map<string, vector<string>> tokenizeRecords(vector<vector<string>> set);
-map<string, vector<int64_t>> preProcessPlaintexts(
-    map<string, vector<string>> set);
+vector<Plaintext> preProcessPlaintexts(CryptoContext<DCRTPoly> cc,
+                                            map<string, vector<string>> set);
+vector<int64_t> simpleIntegerPSI(CryptoContext<DCRTPoly> cc,
+                                 LPKeyPair<DCRTPoly> keyPair,
+                                 vector<int64_t> setX, vector<int64_t> setY);
 
 int main() {
   int plaintextModulus = 65537;
@@ -49,29 +53,14 @@ int main() {
           depth, plaintextModulus, securityLevel, sigma, depth, OPTIMIZED, BV);
 
   // Instantiate the BFVrns crypto context
-//  CryptoContext<DCRTPoly> cc =
-//      CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
-//          plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
+  //  CryptoContext<DCRTPoly> cc =
+  //      CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
+  //          plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
 
   // Enable features that to use
   cc->Enable(ENCRYPTION);
   cc->Enable(SHE);
   cc->Enable(MULTIPARTY);
-
-  //  vector<vector<string>> setA = readFromCSVFile(
-  //      "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
-  //      "gen-1k_300-700-5-5-5-zipf-all_200.csv");
-  //  vector<vector<string>> setB = readFromCSVFile(
-  //      "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
-  //      "gen-1k_300-700-5-5-5-zipf-all_800.csv");
-  //
-  //  map<string, vector<string>> a = tokenizeRecords(setA);
-  //  map<string, vector<string>> b = tokenizeRecords(setB);
-  //
-  //  map<string, vector<int64_t>> plaintextsA = preProcessPlaintexts(a);
-  //  map<string, vector<int64_t>> plaintextsB = preProcessPlaintexts(b);
-  //
-  //
   // Initialize Public Key Containers
   LPKeyPair<DCRTPoly> keyPair;
 
@@ -80,22 +69,62 @@ int main() {
 
   cc->EvalMultKeyGen(keyPair.secretKey);
 
+    vector<vector<string>> setA = readFromCSVFile(
+        "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
+        "test1.csv");
+    vector<vector<string>> setB = readFromCSVFile(
+        "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
+        "test2.csv");
 
+    map<string, vector<string>> a = tokenizeRecords(setA);
+    map<string, vector<string>> b = tokenizeRecords(setB);
+
+    vector<Plaintext> plaintextsA = preProcessPlaintexts(cc, a);
+    vector<Plaintext> plaintextsB = preProcessPlaintexts(cc, b);
+
+  //  vector<int64_t> setX = {3, 2, 1, 4};
+  //  vector<int64_t> setY = {1, 2, 3, 5};
+  //  cout << "set X: " << setX << endl;
+  //  cout << "set Y: " << setY << endl;
   //
-  //  vector<Ciphertext<DCRTPoly>> ciphertexts;
-  //  map<string, vector<int64_t>>::iterator it;
-  //  for (it = plaintextsB.begin(); it != plaintextsB.end(); it++) {
-  //    string key = it->first;
-  //    Plaintext plaintext = cc->MakePackedPlaintext(it->second);
-  //    Ciphertext<DCRTPoly> ciphertext = cc->Encrypt(keyPair.publicKey,
-  //    plaintext); ciphertexts.push_back(ciphertext);
-  //  }
+  //  cout << "Set Intersection between sets X and Y: "
+  //       << simpleIntegerPSI(cc, keyPair, setX, setY) << endl;
 
-  // set X
-  vector<int64_t> setX = {3,2,1,4};
-  // set Y
-  vector<int64_t> setY = {1,2,3,5};
+    vector<Ciphertext<DCRTPoly>> ciphertexts;
+    for (int i = 0; i < plaintextsB.size(); i++) {
+      Ciphertext<DCRTPoly> ciphertext =
+          cc->Encrypt(keyPair.publicKey, plaintextsB[i]);
+      ciphertexts.push_back(ciphertext);
+    }
 
+    vector<Ciphertext<DCRTPoly>> returnCiphertexts;
+    for (int i = 0; i < ciphertexts.size(); i++) {
+      auto sub1 = cc->EvalSub(ciphertexts[i], plaintextsA[0]);
+      auto sub2 = cc->EvalSub(ciphertexts[i], plaintextsA[1]);
+      auto d = cc->EvalMult(sub1, sub2);
+//      for (int j = 2; j < plaintextsA.size(); j++) {
+//        d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], plaintextsA[j]));
+//      }
+      returnCiphertexts.push_back(d);
+    }
+
+    vector<int64_t> setIntersectionResult;
+    for (int i = 0; i < returnCiphertexts.size(); i++) {
+      Plaintext decryptResult;
+      cc->Decrypt(keyPair.secretKey, returnCiphertexts[i], &decryptResult);
+      cout << decryptResult << endl;
+      vector<int64_t> v(decryptResult->GetPackedValue().size(), 0);
+      if (decryptResult->GetPackedValue() == v) {
+        cout << "Found intersection with element from set B at index: " << i << endl;
+      }
+    }
+
+  return 0;
+}
+
+vector<int64_t> simpleIntegerPSI(CryptoContext<DCRTPoly> cc,
+                                 LPKeyPair<DCRTPoly> keyPair,
+                                 vector<int64_t> setX, vector<int64_t> setY) {
   vector<Plaintext> pX;
   vector<Plaintext> pY;
 
@@ -115,13 +144,13 @@ int main() {
     ciphertexts.push_back(cc->Encrypt(keyPair.publicKey, pY[i]));
   }
 
-
   // implementing Basic PSI protocol from: https://eprint.iacr.org/2017/299.pdf
   vector<Ciphertext<DCRTPoly>> returnCiphertexts;
   for (int i = 0; i < ciphertexts.size(); i++) {
     // sample random non-zero plaintext
     Plaintext r = cc->MakeIntegerPlaintext((rand() % 100) + 1);
-    // initializing d_i to be product of difference between each c_i and each x in X
+    // initializing d_i to be product of difference between each c_i and each x
+    // in X
     auto sub1 = cc->EvalSub(ciphertexts[i], pX[0]);
     auto sub2 = cc->EvalSub(ciphertexts[i], pX[1]);
     auto d = cc->EvalMult(sub1, sub2);
@@ -141,11 +170,8 @@ int main() {
       setIntersectionResult.push_back(setY[i]);
     }
   }
-  cout << "set X: " << setX << endl;
-  cout << "set Y: " << setY << endl;
-  cout << "Set Intersection between sets X and Y: " << setIntersectionResult << endl;
 
-  return 0;
+  return setIntersectionResult;
 }
 
 /*
@@ -153,9 +179,9 @@ int main() {
  * n-grams into a vector of int64_t's to prepare for encryption with Palisades
  * functions.
  */
-map<string, vector<int64_t>> preProcessPlaintexts(
-    map<string, vector<string>> set) {
-  map<string, vector<int64_t>> plaintexts;
+vector<Plaintext> preProcessPlaintexts(CryptoContext<DCRTPoly> cc,
+                                            map<string, vector<string>> set) {
+  vector<Plaintext> plaintexts;
   map<string, vector<string>>::iterator it;
   for (it = set.begin(); it != set.end(); it++) {
     vector<int64_t> plaintext;
@@ -166,7 +192,7 @@ map<string, vector<int64_t>> preProcessPlaintexts(
         plaintext.push_back(int(c));
       }
     }
-    plaintexts[key] = plaintext;
+    plaintexts.push_back(cc->MakePackedPlaintext(plaintext));
   }
   return plaintexts;
 }
@@ -212,29 +238,17 @@ map<string, vector<string>> tokenizeRecords(vector<vector<string>> set) {
  * vector is a comma separated field in the input.
  */
 vector<vector<string>> readFromCSVFile(string csvFilePath) {
-  ifstream setA;
-  setA.open(csvFilePath);
-
-  if (!setA.is_open() || setA.fail()) {
-    std::cout << "ERROR: File could not be opened" << '\n';
-  }
-
-  // std::initializer_list<string> recordKeys = {rec_id, culture, sex, age,
-  // date_of_birth, title, given_name, surname, state, suburb, postcode,
-  // street_number, address_1, address_2, phone_number,soc_sec_id,
-  // blocking_number, family_role, _gt_id};
+  csvstream csvin(csvFilePath);
 
   vector<vector<string>> records;
-  string line;
-  while (getline(setA, line)) {
-    stringstream ss(line);
-    vector<string> row;
-    string data;
-    while (getline(ss, data, ',')) {
-      row.push_back(data);
+  vector<pair<string, string>> row;
+
+  while (csvin >> row) {
+    vector<string> record;
+    for (unsigned int i = 0; i < row.size(); ++i) {
+      record.push_back(row[i].second);
     }
-    records.push_back(row);
+    records.push_back(record);
   }
-  setA.close();
   return records;
 }
