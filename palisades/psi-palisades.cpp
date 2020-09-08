@@ -34,9 +34,9 @@ using namespace lbcrypto;
 
 vector<vector<string>> readFromCSVFile(string csvFilePath);
 vector<string> tokenHelper(int n, string record);
-map<string, vector<string>> tokenizeRecords(vector<vector<string>> set);
+deque<pair<string, vector<string>>> tokenizeRecords(vector<vector<string>> set);
 vector<Plaintext> preProcessPlaintexts(CryptoContext<DCRTPoly> cc,
-                                            map<string, vector<string>> set);
+                                       deque<pair<string, vector<string>>> set);
 vector<int64_t> simpleIntegerPSI(CryptoContext<DCRTPoly> cc,
                                  LPKeyPair<DCRTPoly> keyPair,
                                  vector<int64_t> setX, vector<int64_t> setY);
@@ -76,8 +76,9 @@ int main() {
         "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
         "test2.csv");
 
-    map<string, vector<string>> a = tokenizeRecords(setA);
-    map<string, vector<string>> b = tokenizeRecords(setB);
+    deque<pair<string, vector<string>>> a = tokenizeRecords(setA);
+    deque<pair<string, vector<string>>> b = tokenizeRecords(setB);
+
 
     vector<Plaintext> plaintextsA = preProcessPlaintexts(cc, a);
     vector<Plaintext> plaintextsB = preProcessPlaintexts(cc, b);
@@ -99,25 +100,28 @@ int main() {
 
     vector<Ciphertext<DCRTPoly>> returnCiphertexts;
     for (int i = 0; i < ciphertexts.size(); i++) {
+//      vector<int64_t> v(8192);
+//      generate(v.begin(), v.end(), RandomGenerator(100));
+//      Plaintext r = cc->MakePackedPlaintext(v);
       auto sub1 = cc->EvalSub(ciphertexts[i], plaintextsA[0]);
       auto sub2 = cc->EvalSub(ciphertexts[i], plaintextsA[1]);
       auto d = cc->EvalMult(sub1, sub2);
-//      for (int j = 2; j < plaintextsA.size(); j++) {
-//        d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], plaintextsA[j]));
-//      }
+      for (int j = 2; j < plaintextsA.size(); j++) {
+        d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], plaintextsA[j]));
+      }
       returnCiphertexts.push_back(d);
     }
 
-    vector<int64_t> setIntersectionResult;
+    vector<string> setIntersectionResult;
     for (int i = 0; i < returnCiphertexts.size(); i++) {
       Plaintext decryptResult;
       cc->Decrypt(keyPair.secretKey, returnCiphertexts[i], &decryptResult);
-      cout << decryptResult << endl;
       vector<int64_t> v(decryptResult->GetPackedValue().size(), 0);
       if (decryptResult->GetPackedValue() == v) {
-        cout << "Found intersection with element from set B at index: " << i << endl;
+        setIntersectionResult.push_back(b[i].first);
       }
     }
+    cout << "Records in Set Intersection: " << setIntersectionResult << endl;
 
   return 0;
 }
@@ -180,12 +184,11 @@ vector<int64_t> simpleIntegerPSI(CryptoContext<DCRTPoly> cc,
  * functions.
  */
 vector<Plaintext> preProcessPlaintexts(CryptoContext<DCRTPoly> cc,
-                                            map<string, vector<string>> set) {
+                                            deque<pair<string, vector<string>>> set) {
   vector<Plaintext> plaintexts;
-  map<string, vector<string>>::iterator it;
+  deque<pair<string, vector<string>>>::iterator it;
   for (it = set.begin(); it != set.end(); it++) {
     vector<int64_t> plaintext;
-    string key = it->first;
     vector<string> v = it->second;
     for (string s : v) {
       for (char c : s) {
@@ -210,7 +213,6 @@ vector<string> tokenHelper(int n, string record) {
   for (int i = 0; i < record.size() - n + 1; i++) {
     tokenized.push_back(record.substr(i, n));
   }
-
   return tokenized;
 }
 
@@ -219,16 +221,16 @@ vector<string> tokenHelper(int n, string record) {
  * into a tokenized set of n-grams. For my purposes here, I chose bi-grams.
  * ex: ["tanmay"] -> ["ta", "an", "nm", "ma", ay"]
  */
-map<string, vector<string>> tokenizeRecords(vector<vector<string>> set) {
-  map<string, vector<string>> tokenSet;
+deque<pair<string, vector<string>>> tokenizeRecords(vector<vector<string>> set) {
+  deque<pair<string, vector<string>>> tokenSet;
   for (int i = 0; i < set.size(); i++) {
-    string key = set[i][0];
+    string key = set[i][set[i].size() - 1];
     set[i].erase(set[i].begin());
     set[i].erase(set[i].end() - 1);
 
     string s;
     for (const auto &piece : set[i]) s += piece;
-    tokenSet.insert(pair<string, vector<string>>(key, tokenHelper(2, s)));
+    tokenSet.push_back(make_pair(key, tokenHelper(2, s)));
   }
   return tokenSet;
 }

@@ -1,0 +1,4 @@
+rec_id,culture,sex,age,date_of_birth,title,given_name,surname,state,suburb,postcode,street_number,address_1,address_2,phone_number,soc_sec_id,blocking_number,family_role,_gt_id
+rec-242-org,eng,f,33,19870815,dr,nathan,haroldson,qld,wingham,4012,1,denny street,,613 68198190,2522252,4,NoRole,rec-242
+rec-160-org,fre,f,31,19890303,mr,laura,maccaux,vic,simmie,6230,103,mcclintock street,rosemount,618 97085392,2809219,3,NoRole,rec-160
+rec-39-dup-4,usa,,,,pfc,micha ela,kn w1es,,toowong,2067,49,saxb  close,,03 77932493,8620 133,7,NoRole,rec-39
