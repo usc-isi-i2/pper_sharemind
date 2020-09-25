@@ -1,0 +1,11 @@
+rec_id,culture,sex,age,date_of_birth,title,given_name,surname,state,suburb,postcode,street_number,address_1,address_2,phone_number,soc_sec_id,blocking_number,family_role,_gt_id
+rec-242-org,eng,f,33,19870815,dr,nathan,haroldson,qld,wingham,4012,1,denny street,,613 68198190,2522252,4,NoRole,rec-242
+rec-160-dup-2,fre,f,31,19890303,mr,lora,maccauecs,vic,zimmie,6230,103,mklintock street,rojemount,618 97085392,2809219,3,NoRole,rec-160
+rec-124-dup-1,unk,,,19540204,ms,kyle,strazzari,sa,ulehbury,3076,17,goldenkxrive,wilga,617 65752343,3972590,6,NoRole,rec-124
+rec-126-dup-1,eng,f,11,20090920,ho,jackson,christison,vic,newcomb,4034,3,mount vern on drive,,08 7 2175290,7382 723,2,NoRole,rec-126
+rec-232-dup-4,eng,m,29,19910119,,aoa,danell,wq,harrismith,2115,24,boyland close,,8 77521232,2923283,6,NoRole,rec-232
+rec-5-dup-0,chi,f,33,19870907,dr,maecst,jou,vic,breakwater,,46,alanson placke,,8 68640142,7225284,6,NoRole,rec-5
+rec-224-dup-3,eng,m,32,19880326,,nadan,pont,kwld,aeroglen,2230,271,pinkerton kircuit,,03 98844541,8936465,6,NoRole,rec-224
+rec-241-dup-0,swe,f,30,19900525,,jake,ottestad,nsw,bel lata,2652,127,bourke  lace,haze  hi|l,z 92598113,6700773,7,NoRole,rec-241
+rec-119-dup-1,chi,f,33,19871028,,ella,hong,nsw,bellthorpe,5016,10,flore yc rive,,612 53377860,4085741,1,NoRole,rec-119
+rec-100-dup-1,eng,f,30,199 00909,,aal iyah,proudfoot,nsw,,4133,8,wylly place,,2 91347441,n65693,4,NoRole,rec-100

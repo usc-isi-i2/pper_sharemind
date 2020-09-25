@@ -1,0 +1,11 @@
+rec_id,culture,sex,age,date_of_birth,title,given_name,surname,state,suburb,postcode,street_number,address_1,address_2,phone_number,soc_sec_id,blocking_number,family_role,_gt_id
+rec-242-org,eng,f,33,19870815,dr,nathan,haroldson,qld,wingham,4012,1,denny street,,613 68198190,2522252,4,NoRole,rec-242
+rec-160-dup-2,fre,f,31,19890303,mr,lora,maccauecs,vic,zimmie,6230,103,mklintock street,rojemount,618 97085392,2809219,3,NoRole,rec-160
+rec-97-dup-1,abo,f,29,19910621,pfc,michael,gooJagong,,bla ney,275O,2,petterdstreet,eul ong,04 82397461,2626075,1,NoRole,rec-97
+rec-157-dup-1,usa,f,2 5,19950 612,,emma,padil a,nsw,willowtree,3103,2,kennedy street,willera,02 0208 3268,3837645,1,NoRole,rec-157
+rec-194-dup-1,chi,,37,19830218,,lucas,tang,s,cobdogla,317 9,10,michell street,willa ndra,07 51 36642,8582160,2,NoRole,rec-194
+rec-103-dup-0,usa,f,19,20010609,on,katherin,conrat,qld,puderim,4361,21,jobson place,telopea park,03 23955700,2461808,3,NoRole,rec-103
+rec-179-dup-3,eng,f,29,19910219,,jakkson,zpight,qld,kanya,6052,2,sherwin place,,3 48893149,7135925,5,NoRole,rec-179
+rec-86-dup-0,unk,v,33,19870614,,roperd,strikh,qld,goovigen,2209,38,manning street,,03 82140210,3999843,5,NoRole,rec-86
+rec-53-dup-0,eng,f,,1971 0 01,,joshu,abrarns,vic,qreenwood,2037,33,solomon crescent,old school hse,08 80746189,5924872,1,NoRole,rec-53
+rec-124-dup-1,unk,,,19540204,ms,kyle,strazzari,sa,ulehbury,3076,17,goldenkxrive,wilga,617 65752343,3972590,6,NoRole,rec-124
