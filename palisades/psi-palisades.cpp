@@ -30,9 +30,11 @@
 #include "csvstream.h"
 #include <Python.h>
 #include <sstream>
+#include <chrono>
 
 using namespace std;
 using namespace lbcrypto;
+using namespace std::chrono;
 
 deque<pair<string, vector<int64_t>>> readFromCSVFile(string csvFilePath);
 
@@ -48,35 +50,9 @@ int main() {
   }
   Py_Finalize();
 
-  int plaintextModulus = 65537;
-  double sigma = 3.2;
-  SecurityLevel securityLevel = HEStd_128_classic;
-  uint32_t depth = 10;
+  cout << "(1) reading in files!" << endl;
 
-  // Instantiate the BGVrns crypto context
-  CryptoContext<DCRTPoly> cc =
-      CryptoContextFactory<DCRTPoly>::genCryptoContextBGVrns(
-          depth, plaintextModulus, securityLevel, sigma, depth, OPTIMIZED, BV);
-
-  // Instantiate the BFVrns crypto context
-  //    CryptoContext<DCRTPoly> cc =
-  //        CryptoContextFactory<DCRTPoly>::genCryptoContextBFVrns(
-  //            plaintextModulus, securityLevel, sigma, 0, depth, 0, OPTIMIZED);
-
-  // Enable features that to use
-  cc->Enable(ENCRYPTION);
-  cc->Enable(SHE);
-  cc->Enable(MULTIPARTY);
-  // Initialize Public Key Containers
-  LPKeyPair<DCRTPoly> keyPair;
-
-  // Generate a public/private key pair
-  keyPair = cc->KeyGen();
-
-  cc->EvalMultKeyGen(keyPair.secretKey);
-
-  cout << "reading in files!" << endl;
-
+  auto start = high_resolution_clock::now();
 
   deque<pair<string, vector<int64_t>>> setA = readFromCSVFile(
       "/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/"
@@ -88,8 +64,87 @@ int main() {
   vector<Plaintext> plaintextsA;
   vector<Plaintext> plaintextsB;
 
-  cout << "converting to plaintexts!" << endl;
+  auto stop = high_resolution_clock::now();
+  auto duration = duration_cast<seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
 
+  cout << "(2) converting to plaintexts!" << endl;
+
+  start = high_resolution_clock::now();
+
+  int depth;
+  if (setA.size() >= setB.size()) {
+    depth = setA.size();
+  } else {
+    depth = setB.size();
+  }
+  int plaintextModulus = (depth * 131072) + 1;
+  double sigma = 3.2;
+  SecurityLevel securityLevel = HEStd_128_classic;
+
+  EncodingParams encodingParams(new EncodingParamsImpl(plaintextModulus));
+
+  usint batchSize = 1024;
+  encodingParams->SetBatchSize(batchSize);
+
+  // Instantiate the crypto context
+  CryptoContext<DCRTPoly> cc =
+      CryptoContextFactory<DCRTPoly>::genCryptoContextBGVrns(
+          depth, plaintextModulus, securityLevel, sigma, depth, OPTIMIZED, BV);
+
+
+  uint32_t m = cc->GetCyclotomicOrder();
+  PackedEncoding::SetParams(m, encodingParams);
+
+  // enable features that you wish to use
+  cc->Enable(ENCRYPTION);
+  cc->Enable(SHE);
+  cc->Enable(MULTIPARTY);
+
+  // Initialize Public Key Containers
+  LPKeyPair<DCRTPoly> kp1;
+  LPKeyPair<DCRTPoly> kp2;
+
+  LPKeyPair<DCRTPoly> kpMultiparty;
+
+  kp1 = cc->KeyGen();
+  cc->EvalMultKeyGen(kp1.secretKey);
+
+  auto evalMultKey = cc->KeySwitchGen(kp1.secretKey, kp1.secretKey);
+
+  kp2 = cc->MultipartyKeyGen(kp1.publicKey);
+  cc->EvalMultKeyGen(kp2.secretKey);
+
+  auto evalMultKey2 =
+      cc->MultiKeySwitchGen(kp2.secretKey, kp2.secretKey, evalMultKey);
+
+  std::cout
+      << "Joint evaluation multiplication key for (s_a + s_b) is generated..."
+      << std::endl;
+  auto evalMultAB = cc->MultiAddEvalKeys(evalMultKey, evalMultKey2,
+                                         kp2.publicKey->GetKeyTag());
+
+  std::cout << "Joint evaluation multiplication key (s_a + s_b) is transformed "
+               "into s_b*(s_a + s_b)..."
+            << std::endl;
+  auto evalMultBAB = cc->MultiMultEvalKey(evalMultAB, kp2.secretKey,
+                                          kp2.publicKey->GetKeyTag());
+
+
+  std::cout << "Joint key (s_a + s_b) is transformed into s_a*(s_a + s_b)..."
+            << std::endl;
+  auto evalMultAAB = cc->MultiMultEvalKey(evalMultAB, kp1.secretKey,
+                                          kp2.publicKey->GetKeyTag());
+
+  std::cout << "Computing the final evaluation multiplication key for (s_a + "
+               "s_b)*(s_a + s_b)..."
+            << std::endl;
+  auto evalMultFinal = cc->MultiAddEvalMultKeys(evalMultAAB, evalMultBAB,
+                                                evalMultAB->GetKeyTag());
+
+  cc->InsertEvalMultKey({evalMultFinal});
+
+  std::cout << "Round 3 of key generation completed." << std::endl;
 
   deque<pair<string, vector<int64_t>>>::iterator it;
   for (it = setA.begin(); it != setA.end(); it++) {
@@ -101,43 +156,91 @@ int main() {
     plaintextsB.push_back(cc->MakePackedPlaintext(it2->second));
   }
 
-  cout << "encrypting set B!" << endl;
+  stop = high_resolution_clock::now();
+  duration = duration_cast<seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
+
+  cout << "(3) encrypting set B!" << endl;
+
+  start = high_resolution_clock::now();
 
   vector<Ciphertext<DCRTPoly>> ciphertexts;
   for (int i = 0; i < plaintextsB.size(); i++) {
     Ciphertext<DCRTPoly> ciphertext =
-        cc->Encrypt(keyPair.publicKey, plaintextsB[i]);
+        cc->Encrypt(kp2.publicKey, plaintextsB[i]);
     ciphertexts.push_back(ciphertext);
   }
 
-  cout << "running PSI algorithm!" << endl;
+  stop = high_resolution_clock::now();
+  duration = duration_cast<seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
 
-  vector<Ciphertext<DCRTPoly>> returnCiphertexts;
-  for (int i = 0; i < ciphertexts.size(); i++) {
-    auto sub1 = cc->EvalSub(ciphertexts[i], plaintextsA[0]);
-    auto sub2 = cc->EvalSub(ciphertexts[i], plaintextsA[1]);
-    auto d = cc->EvalMult(sub1, sub2);
-    for (int j = 2; j < plaintextsA.size(); j++) {
-      d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], plaintextsA[j]));
-    }
-    returnCiphertexts.push_back(d);
-  }
+  cout << "(4) running PSI algorithm!" << endl;
 
-  cout << "decrypting and determining set intersection size!" << endl;
+  start = high_resolution_clock::now();
 
   double setIntersectionSize = 0;
-  for (int i = 0; i < returnCiphertexts.size(); i++) {
-    Plaintext decryptResult;
-    cc->Decrypt(keyPair.secretKey, returnCiphertexts[i], &decryptResult);
-    vector<int64_t> v(decryptResult->GetPackedValue().size(), 0);
-    if (decryptResult->GetPackedValue() == v) {
-      setIntersectionSize++;
+
+  vector<Ciphertext<DCRTPoly>> returnCiphertexts;
+    for (int i = 0; i < ciphertexts.size(); i++) {
+      auto sub1 = cc->EvalSub(ciphertexts[i], plaintextsA[0]);
+      auto sub2 = cc->EvalSub(ciphertexts[i], plaintextsA[1]);
+      auto d = cc->EvalMult(sub1, sub2);
+      for (int j = 2; j < plaintextsA.size(); j++) {
+        d = cc->EvalMult(d, cc->EvalSub(ciphertexts[i], plaintextsA[j]));
+      }
+      returnCiphertexts.push_back(d);
     }
+
+  stop = high_resolution_clock::now();
+  duration = duration_cast<seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
+
+  cout << "(5) decrypting and determining set intersection size!" << endl;
+
+  start = high_resolution_clock::now();
+
+  const shared_ptr<LPCryptoParameters<DCRTPoly>> cryptoParams =
+      kp1.secretKey->GetCryptoParameters();
+  const shared_ptr<typename DCRTPoly::Params> elementParams =
+      cryptoParams->GetElementParams();
+
+  for (int i = 0; i < returnCiphertexts.size(); i++) {
+    Plaintext plaintextMultipartyMult;
+
+    auto ciphertextPartial1 =
+        cc->MultipartyDecryptLead(kp1.secretKey, {returnCiphertexts[i]});
+
+    auto ciphertextPartial2 =
+        cc->MultipartyDecryptMain(kp2.secretKey, {returnCiphertexts[i]});
+
+    vector<Ciphertext<DCRTPoly>> partialCiphertextVecMult;
+    partialCiphertextVecMult.push_back(ciphertextPartial1[0]);
+    partialCiphertextVecMult.push_back(ciphertextPartial2[0]);
+
+    cc->MultipartyDecryptFusion(partialCiphertextVecMult,
+                                &plaintextMultipartyMult);
+
+    plaintextMultipartyMult->SetLength(plaintextsB[0]->GetLength());
+    vector<int64_t> v(plaintextMultipartyMult->GetPackedValue().size(), 0);
+      if (plaintextMultipartyMult->GetPackedValue() == v) {
+        setIntersectionSize++;
+      }
   }
+
+    stop = high_resolution_clock::now();
+
+  duration = duration_cast<seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
+
   cout << "set intersection size: " << setIntersectionSize << endl;
-  cout << "denominator: " << ((plaintextsA.size() + plaintextsB.size()) - setIntersectionSize) << endl;
-  double jaccard = setIntersectionSize / ((plaintextsA.size() + plaintextsB.size()) - setIntersectionSize);
-  printf("%f\n", jaccard);
+
+  double jaccard =
+      setIntersectionSize /
+      ((plaintextsA.size() + plaintextsB.size()) - setIntersectionSize);
+  cout << "jaccard similarity score: ";
+  printf("%lf\n", jaccard);
+
   return 0;
 }
 
@@ -157,7 +260,7 @@ deque<pair<string, vector<int64_t>>> readFromCSVFile(string csvFilePath) {
     string key;
     for (unsigned int i = 0; i < row.size(); ++i) {
       stringstream s_stream(row[i].second);
-      while(s_stream.good()) {
+      while (s_stream.good()) {
         string substr;
         getline(s_stream, substr, ',');
         if (i == 1) {
