@@ -104,19 +104,45 @@ int main() {
   // Initialize Public Key Containers
   LPKeyPair<DCRTPoly> kp1;
   LPKeyPair<DCRTPoly> kp2;
+//  LPKeyPair<DCRTPoly> kp3;
 
   LPKeyPair<DCRTPoly> kpMultiparty;
 
   kp1 = cc->KeyGen();
   cc->EvalMultKeyGen(kp1.secretKey);
 
-  auto evalMultKey = cc->KeySwitchGen(kp1.secretKey, kp1.secretKey);
-
   kp2 = cc->MultipartyKeyGen(kp1.publicKey);
   cc->EvalMultKeyGen(kp2.secretKey);
 
+//  kp3 = cc->MultipartyKeyGen(kp2.publicKey);
+//  cc->EvalMultKeyGen(kp3.secretKey);
+
+
+  auto evalMultKey = cc->KeySwitchGen(kp1.secretKey, kp1.secretKey);
+
   auto evalMultKey2 =
       cc->MultiKeySwitchGen(kp2.secretKey, kp2.secretKey, evalMultKey);
+//
+//  auto evalMultKey3 =
+//      cc->MultiKeySwitchGen(kp3.secretKey, kp3.secretKey, evalMultKey2);
+//
+//  auto ab = cc->MultiAddEvalKeys(evalMultKey, evalMultKey2);
+//  auto evalMultABC = cc->MultiAddEvalKeys(ab, evalMultKey3, kp3.publicKey->GetKeyTag());
+//
+//  auto evalMultCABC = cc->MultiMultEvalKey(evalMultABC, kp3.secretKey, kp3.publicKey->GetKeyTag());
+//
+//  auto evalMultBABC = cc->MultiMultEvalKey(evalMultABC, kp2.secretKey, kp3.publicKey->GetKeyTag());
+//
+//  auto evalMultAABC = cc->MultiMultEvalKey(evalMultABC, kp1.secretKey, kp3.publicKey->GetKeyTag());
+//
+//  auto final_ab = cc->MultiAddEvalMultKeys(evalMultAABC, evalMultBABC,
+//                                          ab->GetKeyTag());
+//
+//  auto final_abc = cc->MultiAddEvalMultKeys(evalMultCABC, final_ab,
+//                                            evalMultABC->GetKeyTag());
+//
+//  cc->InsertEvalMultKey({final_abc});
+
 
   std::cout
       << "Joint evaluation multiplication key for (s_a + s_b) is generated..."
@@ -142,9 +168,9 @@ int main() {
   auto evalMultFinal = cc->MultiAddEvalMultKeys(evalMultAAB, evalMultBAB,
                                                 evalMultAB->GetKeyTag());
 
-  cc->InsertEvalMultKey({evalMultFinal});
-
   std::cout << "Round 3 of key generation completed." << std::endl;
+
+  cc->InsertEvalMultKey({evalMultFinal});
 
   deque<pair<string, vector<int64_t>>>::iterator it;
   for (it = setA.begin(); it != setA.end(); it++) {
@@ -192,6 +218,9 @@ int main() {
       returnCiphertexts.push_back(d);
     }
 
+
+
+
   stop = high_resolution_clock::now();
   duration = duration_cast<seconds>(stop - start);
   cout << "time taken (s): " << duration.count() << " seconds" << endl;
@@ -214,14 +243,21 @@ int main() {
     auto ciphertextPartial2 =
         cc->MultipartyDecryptMain(kp2.secretKey, {returnCiphertexts[i]});
 
+//    auto ciphertextPartial3 =
+//        cc->MultipartyDecryptMain(kp3.secretKey, {returnCiphertexts[i]});
+
     vector<Ciphertext<DCRTPoly>> partialCiphertextVecMult;
     partialCiphertextVecMult.push_back(ciphertextPartial1[0]);
     partialCiphertextVecMult.push_back(ciphertextPartial2[0]);
+    //partialCiphertextVecMult.push_back(ciphertextPartial3[0]);
 
     cc->MultipartyDecryptFusion(partialCiphertextVecMult,
                                 &plaintextMultipartyMult);
 
     plaintextMultipartyMult->SetLength(plaintextsB[0]->GetLength());
+
+    cout << plaintextMultipartyMult << endl;
+
     vector<int64_t> v(plaintextMultipartyMult->GetPackedValue().size(), 0);
       if (plaintextMultipartyMult->GetPackedValue() == v) {
         setIntersectionSize++;
