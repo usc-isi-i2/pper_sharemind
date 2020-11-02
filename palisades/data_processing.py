@@ -1,10 +1,12 @@
 import csv
+import sys
 ds1_path = '/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/test_data/gen-1k_300-700-5-5-5-zipf-all_200.csv'
 ds2_path = '/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/test_data/gen-1k_300-700-5-5-5-zipf-all_800.csv'
 ds1 = {}
 ds2 = {}
 t = 0.5
-N = 10
+N = int(sys.argv[1])
+
 
 def jaccard(a, b, t):
     return (1.0 * (len(a & b) / len(a | b))) >= t
@@ -75,10 +77,12 @@ def processing():
             value = [ord(elem) for sub in value for elem in sub]
             # value = list(filter(lambda x: x != '__', value))
             ds2[line['rec_id']] = value
-        with open('../src/pke/examples/test_data/tokenized_set_A.csv', 'w+') as file1:
+        with open('/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/test_data/tokenized_set_A.csv', 'w+') as file1:
+            file1.write("%s:%s\n"%("key", "tokens"))
             for key in ds1.keys():
                 file1.write("%s:%s\n"%(key, ds1[key]))
-        with open('../src/pke/examples/test_data/tokenized_set_B.csv', 'w+') as file2:
+        with open('/Users/tanmay.ghai/Desktop/palisade-development/src/pke/examples/test_data/tokenized_set_B.csv', 'w+') as file2:
+            file2.write("%s:%s\n"%("key", "tokens"))
             for key in ds2.keys():
                 file2.write("%s:%s\n"%(key, ds2[key]))
 
