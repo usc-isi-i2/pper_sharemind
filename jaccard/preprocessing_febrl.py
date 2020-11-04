@@ -6,13 +6,14 @@ import preprocessing as pp
 if __name__ == '__main__':
     '''
     python preprocessing_febrl.py test_data/gen-1k_300-700-5-5-5-zipf-all_200.csv test_data/ds1_output.csv \
-        --prefix=ds1_ --blocking --num-perm=128 --threshold=0.5
+        --prefix=ds1_ --ngram=2 --blocking --num-perm=128 --threshold=0.5
     '''
 
     parser = argparse.ArgumentParser(description='Preprocess Febrl dataset')
     parser.add_argument('infile', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
     parser.add_argument('outfile', nargs='?', type=argparse.FileType('w'), default=sys.stdout)
     parser.add_argument('--prefix', dest='prefix', action='store', required=True)
+    parser.add_argument('--ngram', dest='ngram', action='store', type=int, default=2)
     parser.add_argument('--blocking', dest='blocking', action='store_true')
     parser.add_argument('--num-perm', dest='num_perm', action='store', type=int, default=128)
     parser.add_argument('--threshold', dest='threshold', action='store', type=float)
@@ -39,7 +40,7 @@ if __name__ == '__main__':
             + ' ' + line['phone_number']\
             + ' ' + line['soc_sec_id']
         value = value.lower().strip()
-        value = pp.ngram(2, value)
+        value = pp.ngram(args.ngram, value)
         value = list(filter(lambda x: x != '', value))
 
         output = {
@@ -49,7 +50,7 @@ if __name__ == '__main__':
         }
 
         if args.blocking:
-            blocking_keys = pp.generate_blocking_keys(value, num_perm=128, threshold=0.5)
+            blocking_keys = pp.generate_blocking_keys(value, num_perm=args.num_perm, threshold=args.threshold)
             output['blocking_keys'] = ' '.join(blocking_keys)  # base64 has no space
 
         csv_out.writerow(output)
