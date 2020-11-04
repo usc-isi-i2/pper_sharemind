@@ -1,4 +1,6 @@
 import sys
+import base64
+from datasketch import MinHash, MinHashLSH
 
 
 def ngram(n, s, place_holder=' ', padded=False):
@@ -29,8 +31,23 @@ def encode_token(t):
     return re
 
 
-if __name__ == '__main__':
+def generate_blocking_keys(data, num_perm, threshold):
+    m = MinHash(num_perm=num_perm)
+    for d in data:
+        m.update(d.encode('utf8'))
+    lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
+    lsh.insert("m", m)
 
+    keys = set()
+    for (start, end), hashtable in zip(lsh.hashranges, lsh.hashtables):
+        # _H(m.hashvalues[start:end]) == list(hashtable._dict.keys())[0]
+        byte_key = list(hashtable._dict.keys())[0]
+        keys.add(base64.b64encode(byte_key).decode('utf-8'))
+    return keys
+
+
+if __name__ == '__main__':
+    # python preprocessing.py "hello" "helle" 3
     a = sys.argv[1]
     b = sys.argv[2]
     n = int(sys.argv[3]) # n-gram
