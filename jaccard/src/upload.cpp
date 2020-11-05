@@ -182,18 +182,19 @@ int main(int argc, char ** argv) {
         }
 
         // upload blocks
+        std::uint64_t id = std::stoi(key.substr(prefix.size(), key.size()));
         for (const auto bkey : *bkeys) {
             sm::SystemControllerGlobals systemControllerGlobals;
             sm::SystemController c(logger, *config);
 
             // Initialize the argument map and set the argument
             sm::SystemController::ValueMap arguments;
-            arguments["key"] =
+            arguments["id"] =
                     std::make_shared<sm::SystemController::Value>(
-                        "",
-                        "string",
-                        newGlobalBuffer((const char *)key.c_str(), sizeof(char) * key.length()),
-                        sizeof(char) * key.length());
+                    "",
+                    "uint64",
+                    newGlobalBuffer(&id, sizeof(std::uint64_t)),
+                    sizeof(std::uint64_t));
             arguments["bkey"] =
                     std::make_shared<sm::SystemController::Value>(
                         "",
