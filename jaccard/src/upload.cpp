@@ -46,8 +46,11 @@ inline std::string int_to_hex(std::uint64_t i)
 int main(int argc, char ** argv) {
     std::unique_ptr<sm::SystemControllerConfiguration> config;
     auto tokens = std::make_shared<std::vector<std::uint64_t>>();
+    auto bkeys = std::make_shared<std::vector<std::string>>();
     std::vector<std::string> tokens_str;
+    std::vector<std::string> bkeys_str;
     std::string key;
+    std::string prefix;
 
     try {
         namespace po = boost::program_options;
@@ -61,6 +64,8 @@ int main(int argc, char ** argv) {
             ("help", "Print this help")
             ("key,k", po::value<std::string>(), "key in Redis")
             ("tokens,t", po::value<std::vector<std::string>>()->multitoken(), "tokens,t")
+            ("bkeys", po::value<std::vector<std::string>>()->multitoken(), "Blocking keys")
+            ("prefix", po::value<std::string>(), "Dataset identifier")
             ;
 
         po::variables_map vm;
@@ -88,6 +93,16 @@ int main(int argc, char ** argv) {
             return EXIT_FAILURE;
         } else {
             key = vm["key"].as<std::string>();
+        }
+
+        if (vm.count("bkeys")) {
+            bkeys_str = vm["bkeys"].as< std::vector<std::string> >();
+            for (const auto s : bkeys_str) {
+                bkeys->push_back(s);
+            }
+        }
+        if (vm.count("prefix")) {
+            prefix = vm["prefix"].as<std::string>();
         }
 
         if (vm.count("conf")) {
@@ -125,29 +140,77 @@ int main(int argc, char ** argv) {
         oss << ']';
         logger.info() << oss.str();
     }
+    
+    {
+        std::ostringstream oss;
+        oss << "blocking keys: [ ";
+        for (const auto val : *bkeys) {
+            oss << val << ' ';
+        }
+        oss << ']';
+        logger.info() << oss.str();
+    }
+
+    {
+        logger.info() << "prefix: " << prefix;
+    }
 
     try {
-        sm::SystemControllerGlobals systemControllerGlobals;
-        sm::SystemController c(logger, *config);
+        // upload
+        {
+            sm::SystemControllerGlobals systemControllerGlobals;
+            sm::SystemController c(logger, *config);
 
-        // Initialize the argument map and set the argument
-        sm::SystemController::ValueMap arguments;
-        arguments["key"] =
-                std::make_shared<sm::SystemController::Value>(
-                    "",
-                    "string",
-                    newGlobalBuffer((const char *)key.c_str(), sizeof(char) * key.length()),
-                    sizeof(char) * key.length());
-        arguments["tokens"] =
-                std::make_shared<sm::SystemController::Value>(
-                    "pd_shared3p",
-                    "uint64",
-                    std::shared_ptr<std::uint64_t>(tokens, tokens->data()),
-                    sizeof(std::uint64_t) * tokens->size());
+            // Initialize the argument map and set the argument
+            sm::SystemController::ValueMap arguments;
+            arguments["key"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)key.c_str(), sizeof(char) * key.length()),
+                        sizeof(char) * key.length());
+            arguments["tokens"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "pd_shared3p",
+                        "uint64",
+                        std::shared_ptr<std::uint64_t>(tokens, tokens->data()),
+                        sizeof(std::uint64_t) * tokens->size());
 
-        // Run code
-        logger.info() << "Sending secret shared arguments and running SecreC bytecode on the servers";
-        sm::SystemController::ValueMap results = c.runCode("upload.sb", arguments);
+            // Run code
+            logger.info() << "Uploading tokens";
+            sm::SystemController::ValueMap results = c.runCode("upload.sb", arguments);
+        }
+
+        // upload blocks
+        for (const auto bkey : *bkeys) {
+            sm::SystemControllerGlobals systemControllerGlobals;
+            sm::SystemController c(logger, *config);
+
+            // Initialize the argument map and set the argument
+            sm::SystemController::ValueMap arguments;
+            arguments["key"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)key.c_str(), sizeof(char) * key.length()),
+                        sizeof(char) * key.length());
+            arguments["bkey"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)bkey.c_str(), sizeof(char) * bkey.length()),
+                        sizeof(char) * bkey.length());
+            arguments["prefix"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)prefix.c_str(), sizeof(char) * prefix.length()),
+                        sizeof(char) * prefix.length());
+
+            // Run code
+            logger.info() << "Uploading blocking key";
+            sm::SystemController::ValueMap results = c.runCode("upload_blocks.sb", arguments);
+        }
 
     } catch (const sm::SystemController::WorkerException & e) {
         logger.fatal() << "Multiple exceptions caught:";
