@@ -31,7 +31,7 @@ def encode_token(t):
     return re
 
 
-def generate_blocking_keys(data, num_perm, threshold, key_length=20):
+def generate_blocking_keys(data, num_perm, threshold, key_len=10):
     m = MinHash(num_perm=num_perm)
     for d in data:
         m.update(d.encode('utf8'))
@@ -42,7 +42,7 @@ def generate_blocking_keys(data, num_perm, threshold, key_length=20):
     for (start, end), hashtable in zip(lsh.hashranges, lsh.hashtables):
         # _H(m.hashvalues[start:end]) == list(hashtable._dict.keys())[0]
         byte_key = list(hashtable._dict.keys())[0]
-        keys.add(hashlib.sha1(byte_key).hexdigest()[:key_length])
+        keys.add(hashlib.sha1(byte_key).hexdigest()[:key_len])
     return keys
 
 
