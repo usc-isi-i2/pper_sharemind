@@ -51,6 +51,7 @@ int main(int argc, char ** argv) {
     std::uint64_t a_size;
     std::uint64_t b_size;
     float t;
+    bool blocking;
 
     try {
         namespace po = boost::program_options;
@@ -67,6 +68,7 @@ int main(int argc, char ** argv) {
             ("a_size", po::value<std::uint64_t>(&a_size), "Key is {a_prefix}{0}...{a_prefix}{a_size-1}")
             ("b_size", po::value<std::uint64_t>(&b_size), "Key is {b_prefix}{0}...{b_prefix}{b_size-1}")
             ("t", po::value<float>(&t), "threshold")
+            ("blocking", po::bool_switch(&blocking)->default_value(false), "Enable blocking");
             ;
 
         po::variables_map vm;
@@ -135,6 +137,7 @@ int main(int argc, char ** argv) {
         logger.info() << "b_prefix: " << b_prefix;
         logger.info() << "b_size: " << b_size;
         logger.info() << "t: " << t;
+        logger.info() << "blocking: " << blocking;
     }
 
     try {
@@ -173,6 +176,12 @@ int main(int argc, char ** argv) {
                     "float32",
                     newGlobalBuffer(&t, sizeof(float)),
                     sizeof(float));
+        arguments["blocking"] =
+                std::make_shared<sm::SystemController::Value>(
+                    "",
+                    "bool",
+                    newGlobalBuffer(&blocking, sizeof(bool)),
+                    sizeof(bool));
 
         // Run code
         logger.info() << "Sending secret shared arguments and running SecreC bytecode on the servers";
