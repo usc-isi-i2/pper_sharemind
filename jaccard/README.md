@@ -96,9 +96,9 @@ build/link --a_prefix ds1_ --a_size 2 --b_prefix ds2_ --b_size 8 --t 0.5
 
 ## Run program with blocking
 
-0. In keydb config file, `ScanCount` needs to be set to a value greater than the total number of records in keydb.
+0. In keydb config file, `ScanCount` needs to be set to a value greater than the total number of records in keydb. Total number of records can be computed as `26 * (a_size + b_size)` in which each record occupies 25 blocking keys and 1 record key.
 
-1. It is similar to non-blocking version, but need to an additional column which contains blocking keys. 
+1. It is similar to non-blocking version, but need an additional column which contains blocking keys. 
 
 ```
 id,original_id,tokens,blocking_keys
@@ -110,7 +110,7 @@ For Febrl dataset, the following script can be called to generate such file.
 
 ```
 python preprocessing_febrl.py <input.csv> <output.csv> \
-        --ngram=2 --blocking --num-perm=128 --threshold=0.4
+        --ngram=2 --blocking --num-perm=128 --threshold=0.5
 ```
 
 Then you need to upload tokens with blocking keys

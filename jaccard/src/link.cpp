@@ -17,7 +17,6 @@
 #include <string>
 
 namespace sm = sharemind;
-const std::uint64_t MAX_UINT64 = 18446744073709551615UL;
 
 inline std::shared_ptr<void> newGlobalBuffer(std::size_t const size) {
     auto * const b = size ? ::operator new(size) : nullptr;
@@ -195,11 +194,13 @@ int main(int argc, char ** argv) {
         }
 
         try {
-            auto result = it->second->getVector<std::uint64_t>();
-            for (uint i = 0; i < result.size(); i++) {
-                if (result[i] == MAX_UINT64) continue;
-                if (i % 2 != 0) {
-                    logger.info() << "Found pair (" << result[i] << "," << result[i-1] << ")";
+            auto result = it->second->getVector<bool>();
+            for (uint i = 0; i < (uint)a_size; i++) {
+                for (uint j = 0; j < (uint)b_size; j++) {
+                    uint idx = i * b_size + j;
+                    if (result[idx]) {
+                        logger.info() << "Found pair (" << i << "," << j << ")";
+                    }
                 }
             }
         } catch (const sm::SystemController::Value::ParseException & e) {
