@@ -40,7 +40,7 @@ if __name__ == '__main__':
             + ' ' + line['phone_number']\
             + ' ' + line['soc_sec_id']
         value = value.lower().strip()
-        value = pp.ngram(args.ngram, value)
+        value = set(pp.ngram(args.ngram, value))
         value = list(filter(lambda x: x != '', value))
 
         output = {
