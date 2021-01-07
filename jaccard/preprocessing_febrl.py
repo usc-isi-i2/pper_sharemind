@@ -19,7 +19,9 @@ if __name__ == '__main__':
     parser.add_argument('--threshold', dest='threshold', action='store', type=float)
     args = parser.parse_args()
 
-    fieldnames = ['id', 'original_id', 'tokens'] + ['blocking_keys'] if args.blocking else []
+    fieldnames = ['id', 'original_id', 'tokens']
+    fieldnames += ['blocking_keys'] if args.blocking else []
+    
     csv_in = csv.DictReader(args.infile)
     csv_out = csv.DictWriter(args.outfile, fieldnames=fieldnames, lineterminator='\n')
     csv_out.writeheader()
