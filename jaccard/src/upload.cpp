@@ -51,6 +51,7 @@ int main(int argc, char ** argv) {
     std::vector<std::string> bkeys_str;
     std::uint64_t id;
     std::string prefix;
+    std::string bprefix;
 
     try {
         namespace po = boost::program_options;
@@ -64,8 +65,9 @@ int main(int argc, char ** argv) {
             ("help", "Print this help")
             ("id", po::value<std::uint64_t>(&id), "id of record")
             ("tokens,t", po::value<std::vector<std::string>>()->multitoken(), "tokens,t")
-            ("bkeys", po::value<std::vector<std::string>>()->multitoken(), "Blocking keys")
             ("prefix", po::value<std::string>(), "Dataset identifier")
+            ("bkeys", po::value<std::vector<std::string>>()->multitoken(), "Blocking keys")
+            ("bprefix", po::value<std::string>()->default_value("b_"), "Prefix of blocking key")
             ;
 
         po::variables_map vm;
@@ -93,14 +95,19 @@ int main(int argc, char ** argv) {
             return EXIT_FAILURE;
         }
 
+        if (vm.count("prefix")) {
+            prefix = vm["prefix"].as<std::string>();
+        }
+
         if (vm.count("bkeys")) {
             bkeys_str = vm["bkeys"].as< std::vector<std::string> >();
             for (const auto s : bkeys_str) {
                 bkeys->push_back(s);
             }
         }
-        if (vm.count("prefix")) {
-            prefix = vm["prefix"].as<std::string>();
+
+        if (vm.count("bprefix")) {
+            bprefix = vm["bprefix"].as<std::string>();
         }
 
         if (vm.count("conf")) {
@@ -151,6 +158,7 @@ int main(int argc, char ** argv) {
 
     {
         logger.info() << "prefix: " << prefix;
+        logger.info() << "bprefix: " << bprefix;
     }
 
     try {
@@ -210,6 +218,12 @@ int main(int argc, char ** argv) {
                         "string",
                         newGlobalBuffer((const char *)prefix.c_str(), sizeof(char) * prefix.length()),
                         sizeof(char) * prefix.length());
+            arguments["bprefix"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)bprefix.c_str(), sizeof(char) * bprefix.length()),
+                        sizeof(char) * bprefix.length());
 
             // Run code
             logger.info() << "Uploading blocking key";

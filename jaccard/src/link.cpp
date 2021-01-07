@@ -51,6 +51,7 @@ int main(int argc, char ** argv) {
     std::uint64_t b_size;
     float t;
     bool blocking;
+    std::string bprefix;
 
     try {
         namespace po = boost::program_options;
@@ -67,7 +68,8 @@ int main(int argc, char ** argv) {
             ("a_size", po::value<std::uint64_t>(&a_size), "Key is {a_prefix}{0}...{a_prefix}{a_size-1}")
             ("b_size", po::value<std::uint64_t>(&b_size), "Key is {b_prefix}{0}...{b_prefix}{b_size-1}")
             ("t", po::value<float>(&t), "threshold")
-            ("blocking", po::bool_switch(&blocking)->default_value(false), "Enable blocking");
+            ("blocking", po::bool_switch(&blocking)->default_value(false), "Enable blocking")
+            ("bprefix", po::value<std::string>()->default_value("b_"), "Prefix of blocking key")
             ;
 
         po::variables_map vm;
@@ -108,6 +110,10 @@ int main(int argc, char ** argv) {
             return EXIT_FAILURE;
         }
 
+        if (vm.count("bprefix")) {
+            bprefix = vm["bprefix"].as<std::string>();
+        }
+
         if (vm.count("conf")) {
             config = std::make_unique<sm::SystemControllerConfiguration>(
                         vm["conf"].as<std::string>());
@@ -137,6 +143,7 @@ int main(int argc, char ** argv) {
         logger.info() << "b_size: " << b_size;
         logger.info() << "t: " << t;
         logger.info() << "blocking: " << blocking;
+        logger.info() << "bprefix: " << bprefix;
     }
 
     try {
@@ -181,6 +188,12 @@ int main(int argc, char ** argv) {
                     "bool",
                     newGlobalBuffer(&blocking, sizeof(bool)),
                     sizeof(bool));
+        arguments["bprefix"] =
+                std::make_shared<sm::SystemController::Value>(
+                    "",
+                    "string",
+                    newGlobalBuffer((const char *)bprefix.c_str(), sizeof(char) * bprefix.length()),
+                    sizeof(char) * bprefix.length());
 
         // Run code
         logger.info() << "Sending secret shared arguments and running SecreC bytecode on the servers";

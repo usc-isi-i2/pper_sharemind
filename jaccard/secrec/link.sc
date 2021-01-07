@@ -53,6 +53,7 @@ void main() {
     string b_prefix = argument("b_prefix");
     uint64 b_size = argument("b_size");
     bool blocking = argument("blocking");
+    string bprefix = argument("bprefix");
     pd_shared3p float32 t = argument("t");
     
     keydb_connect("dbhost");
@@ -61,14 +62,14 @@ void main() {
     pd_shared3p bool[[2]] cand_pairs(a_size, b_size) = false;
     if (blocking) {
 
-        ScanCursor a_cur = keydb_scan("b_" + a_prefix + "*");
+        ScanCursor a_cur = keydb_scan(bprefix + a_prefix + "*");
         // a_cur
         while (a_cur.cursor != 0) {
             pd_shared3p uint64[[1]] a_ids = keydb_get(a_cur.key);
-            string key_suffix = substring(a_cur.key, strlen("b_" + a_prefix), strlen(a_cur.key));
+            string key_suffix = substring(a_cur.key, strlen(bprefix + a_prefix), strlen(a_cur.key));
 
             // b_cur
-            ScanCursor b_cur = keydb_scan("b_" + b_prefix + key_suffix);
+            ScanCursor b_cur = keydb_scan(bprefix + b_prefix + key_suffix);
             if (b_cur.cursor != 0) {
                 pd_shared3p uint64[[1]] b_ids = keydb_get(b_cur.key);
 
@@ -77,7 +78,7 @@ void main() {
                     for (uint j = 0; j < size(b_ids); j++) {
                         pd_shared3p uint b_id = b_ids[j];
                         pd_shared3p bool dummy_true = true;
-                        cand_pairs = s(cand_pairs, a_id, b_id, dummy_true);
+                        cand_pairs = matrixUpdate(cand_pairs, a_id, b_id, dummy_true);
                     }
                 }
             }

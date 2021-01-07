@@ -24,12 +24,12 @@ void append_value(string key, pd_shared3p uint64 value) {
 }
 
 void main() {
-    string bprefix = "b_";
     keydb_connect("dbhost");
 
     pd_shared3p uint64 id = argument("id");
     string bkey = argument("bkey");
     string prefix = argument("prefix");
+    string bprefix = argument("bprefix");
     
     string key = bprefix + prefix + bkey;
     append_value(key, id);

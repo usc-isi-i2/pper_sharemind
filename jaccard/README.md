@@ -96,7 +96,7 @@ build/link --a_prefix ds1_ --a_size 2 --b_prefix ds2_ --b_size 8 --t 0.5
 
 ## Run program with blocking
 
-0. In keydb config file, `ScanCount` needs to be set to a value greater than the total number of records in keydb. Total number of records can be computed as `26 * (a_size + b_size)` in which each record occupies 25 blocking keys and 1 record key.
+0. In keydb config file, `ScanCount` needs to be set to a value greater than the total number of records in keydb. Total number of records can be computed as `26 * (a_size + b_size)` in which each record occupies 25 blocking keys and 1 record key when threshold is set to 0.5.
 
 1. It is similar to non-blocking version, but need an additional column which contains blocking keys. 
 
