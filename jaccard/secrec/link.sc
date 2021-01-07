@@ -8,10 +8,10 @@ import shared3p_statistics_common;
 
 domain pd_shared3p shared3p;
 
-float EPSILON = 0.000000001;
+float EPSILON = 0.00001;
 
 template <domain D>
-D bool jaccard(D uint64 inter, uint64 union, D float t) {
+D bool jaccard(D uint64 inter, uint64 union, D float32 t) {
     // jaccard(x, y) = len(x & y) / len(x | y) 
     //               = len(x & y) / (len(x) + len(y) - len(x & y))
     D float32 jaccard_result = (float32)inter / ((float32)union - (float32)inter);
