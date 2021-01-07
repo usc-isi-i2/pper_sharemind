@@ -20,6 +20,7 @@ void append_value(string key, pd_shared3p uint64 value) {
 
     // set new value
     pd_shared3p uint64[[1]] values = cat(old_values, new_values);
+    keydb_del(key); // need to delete old key first
     keydb_set(key, values);
 }
 
