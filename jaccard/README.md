@@ -125,3 +125,11 @@ tail -n +2 <input-csv-file.csv> | awk -F',' '{print "build/upload --id "$1" --to
 ```
 build/link --a_prefix ds1_ --a_size 2 --b_prefix ds2_ --b_size 8 --t 0.5 --blocking
 ```
+
+## Evaluate datasets
+
+Executing `eval.py` script will give you a sense of what to expect from running SecreC record linkage program with certain datasets.
+
+```
+python eval.py <ds1.csv> <ds2.csv> --blocking --threshold 0.8 -v
+```
