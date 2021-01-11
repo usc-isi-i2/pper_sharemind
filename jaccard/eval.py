@@ -24,6 +24,12 @@ def jaccard_sort(a, b):
     print(inter, union)
     return 1.0 * inter / (union - inter)
 
+def compute_metrics(num_of_blocked_comparison, num_full_pairwise_comparison, 
+                    num_of_match_in_block, num_of_match):
+    rr = 1 - 1.0 * num_of_blocked_comparison / num_full_pairwise_comparison
+    pc = 1.0 * num_of_match_in_block / num_of_match
+    f1 = 2.0 * pc * rr / (pc + rr)
+    return round(pc, 2), round(rr, 2), round(f1, 2)
 
 if __name__ == '__main__':
     '''
@@ -104,3 +110,12 @@ if __name__ == '__main__':
         print('Pairs found with blocking: {}'.format(len(result)))
         if args.verbose:
             print(result)
+
+        not_in_block_true_pairs = list(set(true_pairs) - set(result))
+        print('Not in block true pairs: {}'.format(len(not_in_block_true_pairs)))
+        if args.verbose:
+            print(not_in_block_true_pairs)
+
+        pc, rr, f1 = compute_metrics(len(blocked_comps), ds1_size * ds2_size, 
+                                    len(true_pairs) - len(not_in_block_true_pairs), len(true_pairs))
+        print('PC: {}, RR: {}, F-score: {}'.format(pc, rr, f1))
