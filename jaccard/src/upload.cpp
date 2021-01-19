@@ -49,8 +49,9 @@ int main(int argc, char ** argv) {
     auto bkeys = std::make_shared<std::vector<std::string>>();
     std::vector<std::string> tokens_str;
     std::vector<std::string> bkeys_str;
-    std::string key;
+    std::uint64_t id;
     std::string prefix;
+    std::string bprefix;
 
     try {
         namespace po = boost::program_options;
@@ -62,10 +63,11 @@ int main(int argc, char ** argv) {
         desc.add_options()
             ("conf,c", po::value<std::string>(), "Set the configuration file.")
             ("help", "Print this help")
-            ("key,k", po::value<std::string>(), "key in Redis")
+            ("id", po::value<std::uint64_t>(&id), "id of record")
             ("tokens,t", po::value<std::vector<std::string>>()->multitoken(), "tokens,t")
-            ("bkeys", po::value<std::vector<std::string>>()->multitoken(), "Blocking keys")
             ("prefix", po::value<std::string>(), "Dataset identifier")
+            ("bkeys", po::value<std::vector<std::string>>()->multitoken(), "Blocking keys")
+            ("bprefix", po::value<std::string>()->default_value("b_"), "Prefix of blocking key")
             ;
 
         po::variables_map vm;
@@ -87,12 +89,14 @@ int main(int argc, char ** argv) {
                 tokens->push_back(std::stol(s, nullptr, 0));
             }
         }
-        if (!vm.count("key")) {
-            std::cout << "Please enter the key.\n\n"
+        if (!vm.count("id")) {
+            std::cout << "Please enter the id.\n\n"
                 << desc << std::endl;
             return EXIT_FAILURE;
-        } else {
-            key = vm["key"].as<std::string>();
+        }
+
+        if (vm.count("prefix")) {
+            prefix = vm["prefix"].as<std::string>();
         }
 
         if (vm.count("bkeys")) {
@@ -101,8 +105,9 @@ int main(int argc, char ** argv) {
                 bkeys->push_back(s);
             }
         }
-        if (vm.count("prefix")) {
-            prefix = vm["prefix"].as<std::string>();
+
+        if (vm.count("bprefix")) {
+            bprefix = vm["bprefix"].as<std::string>();
         }
 
         if (vm.count("conf")) {
@@ -128,7 +133,7 @@ int main(int argc, char ** argv) {
     logger.info() << "Input parameters:";
 
     {
-        logger.info() << "key: " << key;
+        logger.info() << "id: " << id;
     }
 
     {
@@ -153,6 +158,7 @@ int main(int argc, char ** argv) {
 
     {
         logger.info() << "prefix: " << prefix;
+        logger.info() << "bprefix: " << bprefix;
     }
 
     try {
@@ -163,18 +169,24 @@ int main(int argc, char ** argv) {
 
             // Initialize the argument map and set the argument
             sm::SystemController::ValueMap arguments;
-            arguments["key"] =
+            arguments["id"] =
                     std::make_shared<sm::SystemController::Value>(
                         "",
-                        "string",
-                        newGlobalBuffer((const char *)key.c_str(), sizeof(char) * key.length()),
-                        sizeof(char) * key.length());
+                        "uint64",
+                        newGlobalBuffer(&id, sizeof(std::uint64_t)),
+                        sizeof(std::uint64_t));
             arguments["tokens"] =
                     std::make_shared<sm::SystemController::Value>(
                         "pd_shared3p",
                         "uint64",
                         std::shared_ptr<std::uint64_t>(tokens, tokens->data()),
                         sizeof(std::uint64_t) * tokens->size());
+            arguments["prefix"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)prefix.c_str(), sizeof(char) * prefix.length()),
+                        sizeof(char) * prefix.length());
 
             // Run code
             logger.info() << "Uploading tokens";
@@ -182,7 +194,6 @@ int main(int argc, char ** argv) {
         }
 
         // upload blocks
-        std::uint64_t id = std::stoi(key.substr(prefix.size(), key.size()));
         for (const auto bkey : *bkeys) {
             sm::SystemControllerGlobals systemControllerGlobals;
             sm::SystemController c(logger, *config);
@@ -191,10 +202,10 @@ int main(int argc, char ** argv) {
             sm::SystemController::ValueMap arguments;
             arguments["id"] =
                     std::make_shared<sm::SystemController::Value>(
-                    "",
-                    "uint64",
-                    newGlobalBuffer(&id, sizeof(std::uint64_t)),
-                    sizeof(std::uint64_t));
+                        "pd_shared3p",
+                        "uint64",
+                        newGlobalBuffer(&id, sizeof(std::uint64_t)),
+                        sizeof(std::uint64_t));
             arguments["bkey"] =
                     std::make_shared<sm::SystemController::Value>(
                         "",
@@ -207,6 +218,12 @@ int main(int argc, char ** argv) {
                         "string",
                         newGlobalBuffer((const char *)prefix.c_str(), sizeof(char) * prefix.length()),
                         sizeof(char) * prefix.length());
+            arguments["bprefix"] =
+                    std::make_shared<sm::SystemController::Value>(
+                        "",
+                        "string",
+                        newGlobalBuffer((const char *)bprefix.c_str(), sizeof(char) * bprefix.length()),
+                        sizeof(char) * bprefix.length());
 
             // Run code
             logger.info() << "Uploading blocking key";

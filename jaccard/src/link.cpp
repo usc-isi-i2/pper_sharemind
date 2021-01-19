@@ -17,7 +17,6 @@
 #include <string>
 
 namespace sm = sharemind;
-const std::uint64_t MAX_UINT64 = 18446744073709551615UL;
 
 inline std::shared_ptr<void> newGlobalBuffer(std::size_t const size) {
     auto * const b = size ? ::operator new(size) : nullptr;
@@ -51,6 +50,8 @@ int main(int argc, char ** argv) {
     std::uint64_t a_size;
     std::uint64_t b_size;
     float t;
+    bool blocking;
+    std::string bprefix;
 
     try {
         namespace po = boost::program_options;
@@ -67,6 +68,8 @@ int main(int argc, char ** argv) {
             ("a_size", po::value<std::uint64_t>(&a_size), "Key is {a_prefix}{0}...{a_prefix}{a_size-1}")
             ("b_size", po::value<std::uint64_t>(&b_size), "Key is {b_prefix}{0}...{b_prefix}{b_size-1}")
             ("t", po::value<float>(&t), "threshold")
+            ("blocking", po::bool_switch(&blocking)->default_value(false), "Enable blocking")
+            ("bprefix", po::value<std::string>()->default_value("b_"), "Prefix of blocking key")
             ;
 
         po::variables_map vm;
@@ -107,6 +110,10 @@ int main(int argc, char ** argv) {
             return EXIT_FAILURE;
         }
 
+        if (vm.count("bprefix")) {
+            bprefix = vm["bprefix"].as<std::string>();
+        }
+
         if (vm.count("conf")) {
             config = std::make_unique<sm::SystemControllerConfiguration>(
                         vm["conf"].as<std::string>());
@@ -135,6 +142,8 @@ int main(int argc, char ** argv) {
         logger.info() << "b_prefix: " << b_prefix;
         logger.info() << "b_size: " << b_size;
         logger.info() << "t: " << t;
+        logger.info() << "blocking: " << blocking;
+        logger.info() << "bprefix: " << bprefix;
     }
 
     try {
@@ -173,6 +182,18 @@ int main(int argc, char ** argv) {
                     "float32",
                     newGlobalBuffer(&t, sizeof(float)),
                     sizeof(float));
+        arguments["blocking"] =
+                std::make_shared<sm::SystemController::Value>(
+                    "",
+                    "bool",
+                    newGlobalBuffer(&blocking, sizeof(bool)),
+                    sizeof(bool));
+        arguments["bprefix"] =
+                std::make_shared<sm::SystemController::Value>(
+                    "",
+                    "string",
+                    newGlobalBuffer((const char *)bprefix.c_str(), sizeof(char) * bprefix.length()),
+                    sizeof(char) * bprefix.length());
 
         // Run code
         logger.info() << "Sending secret shared arguments and running SecreC bytecode on the servers";
@@ -186,11 +207,13 @@ int main(int argc, char ** argv) {
         }
 
         try {
-            auto result = it->second->getVector<std::uint64_t>();
-            for (uint i = 0; i < result.size(); i++) {
-                if (result[i] == MAX_UINT64) continue;
-                if (i % 2 != 0) {
-                    logger.info() << "Found pair (" << result[i] << "," << result[i-1] << ")";
+            auto result = it->second->getVector<bool>();
+            for (uint i = 0; i < (uint)a_size; i++) {
+                for (uint j = 0; j < (uint)b_size; j++) {
+                    uint idx = i * b_size + j;
+                    if (result[idx]) {
+                        logger.info() << "Found pair (" << i << "," << j << ")";
+                    }
                 }
             }
         } catch (const sm::SystemController::Value::ParseException & e) {
