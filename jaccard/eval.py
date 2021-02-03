@@ -2,6 +2,7 @@ import os
 import csv
 import sys
 import argparse
+import random
 from collections import defaultdict
 
 
@@ -32,10 +33,28 @@ def compute_blocking_metrics(num_of_blocked_comparison, num_full_pairwise_compar
     return round(pc, 2), round(rr, 2), round(f1, 2)
 
 def compute_er_metrics(tp, tn, fp, fn):
-    precision = 1.0 * tp / (tp + fp)
-    recall = 1.0 * tp / (tp + fn)
+    precision = (1.0 * tp / (tp + fp)) if tp + fp != 0 else 1
+    recall = (1.0 * tp / (tp + fn)) if tp + fn != 0 else 1
     f1 = 2.0 * precision * recall / (precision + recall)
     return round(precision, 2), round(recall, 2), round(f1, 2)
+
+def compute_er(ds1, ds2, t):
+    tp, fp, tn, fn = 0, 0, 0, 0
+    for r1id, r1token in ds1.items():
+        for r2id, r2token in ds2.items():
+            if jaccard(r1token, r2token) + EPSILON >= t:
+                if (r1id, r2id) in true_pairs:
+                    tp += 1
+                else:
+                    fp += 1
+            else:
+                if (r1id, r2id) in true_pairs:
+                    fn += 1
+                else:
+                    tn += 1
+
+    precision, recall, f1 = compute_er_metrics(tp, tn, fp, fn)
+    return precision, recall, f1
 
 if __name__ == '__main__':
     '''
@@ -50,6 +69,8 @@ if __name__ == '__main__':
     parser.add_argument('--er', dest='er', action='store_true')
     parser.add_argument('--er-threshold', dest='er_threshold', action='store', type=float)
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true')
+    parser.add_argument('--search-threshold', dest='search_threshold', action='store_true')
+    parser.add_argument('--epoch', dest='epoch', type=int)
     args = parser.parse_args()
 
     fieldnames = ['id', 'original_id', 'tokens'] + ['blocking_keys'] if args.blocking else []
@@ -95,21 +116,7 @@ if __name__ == '__main__':
     if args.er:
         print('---------------ER enabled---------------')
         print(f'Threshold: {args.er_threshold}')
-        tp, fp, tn, fn = 0, 0, 0, 0
-        for r1id, r1token in ds1.items():
-            for r2id, r2token in ds2.items():
-                if jaccard(r1token, r2token) + EPSILON >= args.er_threshold:
-                    if (r1id, r2id) in true_pairs:
-                        tp += 1
-                    else:
-                        fp += 1
-                else:
-                    if (r1id, r2id) in true_pairs:
-                        fn += 1
-                    else:
-                        tn += 1
-
-        precision, recall, f1 = compute_er_metrics(tp, tn, fp, fn)
+        precision, recall, f1 = compute_er(ds1, ds2, args.er_threshold)
         print(f'Precision: {precision}, Recall: {recall}, F-score: {f1}')
 
     if args.blocking:
@@ -153,3 +160,71 @@ if __name__ == '__main__':
         pc, rr, f1 = compute_blocking_metrics(len(blocked_comps), ds1_size * ds2_size, 
                                     len(true_pairs) - len(not_in_block_true_pairs), len(true_pairs))
         print(f'PC: {pc}, RR: {rr}, F-score: {f1}')
+
+    if args.search_threshold:
+        print('------------Threshold search------------')
+        def squeeze_range(ls):
+            l_idx, r_idx = None, None
+            max_ = max(ls)
+            # left
+            for idx, v in enumerate(ls):
+                if v == max_:
+                    l_idx = max(0, idx - 1)
+                    break
+            # right
+            for idx, v in reversed(list(enumerate(ls))):
+                if v == max_:
+                    r_idx = min(len(ls) - 1, idx + 1)
+                    break
+            return l_idx, r_idx
+
+        def range_(l, r, s, d=1):
+            '''float range'''
+            return [1.0 * x / d for x in range(int(l * d), int(r * d), int(s * d))]
+
+        def final_range(ls):
+            max_ = max(ls)
+            indices = []
+            for idx, v in enumerate(ls):
+                if v == max_:
+                    indices.append(idx)
+            if len(indices) > 2:
+                indices = [indices[0], indices[-1]]
+            return indices
+
+        # 1st round
+        step = 0.1
+        d = 10
+        t_range = range_(0, 1.1, step, d=d)
+        f1s = []
+        skip_range = [1, 0]  # skip unnecessary calculation
+        for t in t_range:
+            _, _, f1 = compute_er(ds1, ds2, t)
+            f1s.append(f1)
+            if f1 == 1.0:
+                skip_range[0] = min(t, skip_range[0])
+                skip_range[1] = max(t, skip_range[1])
+        l_idx, r_idx = squeeze_range(f1s)
+
+        # 2nd+ rounds
+        for _ in range(args.epoch-1):
+            step /= 2
+            d *= 10
+            t_range = range_(t_range[l_idx], t_range[r_idx]+step, step, d=d)
+            f1s = []
+            for t in t_range:
+                if skip_range[0] <= t <= skip_range[1]:
+                    f1 = 1.0
+                else:
+                    _, _, f1 = compute_er(ds1, ds2, t)
+                f1s.append(f1)
+                if f1 == 1.0:
+                    skip_range[0] = min(t, skip_range[0])
+                    skip_range[1] = max(t, skip_range[1])
+            l_idx, r_idx = squeeze_range(f1s)
+
+        indices = final_range(f1s)
+        if len(indices) > 1:
+            print(f'Best threshold range: [{t_range[indices[0]]}, {t_range[indices[1]]}], F-score: {f1s[indices[0]]}')
+        else:
+            print(f'Best threshold: {t_range[indices[0]]}, F-score: {f1s[indices[0]]}')
