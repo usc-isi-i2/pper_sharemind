@@ -13,7 +13,7 @@ using namespace lbcrypto;
 deque<pair<tuple<string, string>, vector<int64_t>>> readFromCSVFile(
     string csvFilePath);
 
-bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, vector<Plaintext> recA, vector<Ciphertext<DCRTPoly>> recB, float threshold);
+bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, Plaintext recA, Plaintext recB, float threshold);
 
 int main(int argc, char** argv) {
   string path = std::__fs::filesystem::current_path();
@@ -51,68 +51,55 @@ int main(int argc, char** argv) {
   deque<pair<tuple<string, string>, vector<int64_t>>> setB =
       readFromCSVFile(path + "/../src/pke/examples/test_data/" + ds2);
 
-  vector<vector<Plaintext>> plaintextsA;
-  vector<vector<Plaintext>> plaintextsB;
+  vector<Plaintext> plaintextsA;
+  vector<Plaintext> plaintextsB;
 
   deque<pair<tuple<string, string>, vector<int64_t>>>::iterator it;
   for (it = setA.begin(); it != setA.end(); it++) {
-    vector<Plaintext> pA;
-    cout << get<1>(it->first) << endl;
-    for (int i = 0; i < it->second.size(); i++) {
-      pA.push_back(cc->MakeIntegerPlaintext(it->second[i]));
-    }
-    plaintextsA.push_back(pA);
+    plaintextsA.push_back(cc->MakePackedPlaintext(it->second));
   }
-
-  cout << "FINISHED SET A" << endl;
 
   deque<pair<tuple<string, string>, vector<int64_t>>>::iterator it2;
   for (it2 = setB.begin(); it2 != setB.end(); it2++) {
-    vector<Plaintext> pB;
-    cout << get<1>(it2->first) << endl;
-    for (int i = 0; i < it2->second.size(); i++) {
-      pB.push_back(cc->MakeIntegerPlaintext(it2->second[i]));
+    plaintextsB.push_back(cc->MakePackedPlaintext(it2->second));
+  }
+
+  int psi = 0;
+  float threshold  = 0.5;
+
+  for (int i = 0; i < plaintextsA.size(); i++) {
+    for (int j = 0; j < plaintextsB.size(); j++) {
+      cout << "Comparing records: " << i << "th record of set A, " << j << "th record of set B" << endl;
+      psi += isMatch(cc, keyPair, plaintextsA[i], plaintextsB[j], threshold);
     }
-    plaintextsB.push_back(pB);
   }
 
-
-  vector<Plaintext> recA = plaintextsA[0];
-  vector<Ciphertext<DCRTPoly>> recB;
-
-  for (int i = 0; i < plaintextsB[0].size(); i++) {
-    recB.push_back(cc->Encrypt(keyPair.publicKey, plaintextsB[0][i]));
-  }
-
-  cout << recA << endl;
-  cout << recB << endl;
-
-//  cout << isMatch(cc, keyPair, recA,  recB, 1) << endl;
-
-
-  return 0;
+  cout << "Total # of records with jaccard >= " << threshold << ": " << psi << endl;
 }
 
-bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, vector<Plaintext> recA, vector<Ciphertext<DCRTPoly>> recB, float threshold) {
-//  int setIntersectionSize = 0;
-  for (int i = 0; i < recB.size(); i++) {
-    auto sub1 = cc->EvalSub(recB[i], recA[0]);
-    auto sub2 = cc->EvalSub(recB[i], recA[1]);
-    auto d = cc->EvalMult(sub1, sub2);
-    for (int j = 2; j < recA.size(); j++) {
-      d = cc->EvalMult(d, cc->EvalSub(recB[i], recA[j]));
-    }
+bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, Plaintext recA, Plaintext recB, float threshold) {
+  float overlap = 0;
+  Ciphertext<DCRTPoly> cipherB = cc->Encrypt(keyPair.publicKey, recB);
+  auto d = cc->EvalSub(recA, cipherB);
+  Plaintext decryptResult;
+  cc->Decrypt(keyPair.secretKey, d, &decryptResult);
 
-//    Plaintext decryptResult;
-//    cc->Decrypt(keyPair.secretKey, d, &decryptResult);
-//    vector<int64_t> v(decryptResult->GetPackedValue().size(), 0);
-//    if (decryptResult->GetPackedValue() == v) {
-//      setIntersectionSize++;
-//    }
+  decryptResult->SetLength(recA->GetLength());
+
+  for (int elem: decryptResult->GetPackedValue()) {
+    if (elem == 0)
+      overlap++;
   }
 
-//  cout << setIntersectionSize << endl;
-  return false;
+  float jaccardSimilarity = (overlap) / ((recA->GetLength() + recB->GetLength()) - overlap);
+
+  cout << jaccardSimilarity << endl;
+
+  if (jaccardSimilarity >= threshold) {
+    return true;
+  } else{
+    return false;
+  }
 
 }
 
