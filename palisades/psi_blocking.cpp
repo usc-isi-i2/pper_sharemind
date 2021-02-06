@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "csvstream.h"
 #include <sstream>
+#include <chrono>
 
 using namespace std;
 using namespace lbcrypto;
@@ -13,7 +14,10 @@ using namespace lbcrypto;
 deque<pair<tuple<string, string>, vector<int64_t>>> readFromCSVFile(
     string csvFilePath);
 
-bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, Plaintext recA, Plaintext recB, float threshold);
+int longestRotationNeeded;
+
+bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair,
+             Plaintext recA, Plaintext recB, float threshold);
 
 int main(int argc, char** argv) {
   string path = std::__fs::filesystem::current_path();
@@ -65,49 +69,76 @@ int main(int argc, char** argv) {
   }
 
   int psi = 0;
-  float threshold  = 0.5;
+  float threshold = 0.5;
 
   for (int i = 0; i < plaintextsA.size(); i++) {
     for (int j = 0; j < plaintextsB.size(); j++) {
-      cout << "Comparing records: " << i << "th record of set A, " << j << "th record of set B" << endl;
-      psi += isMatch(cc, keyPair, plaintextsA[i], plaintextsB[j], threshold);
+      cout << "Comparing records: " << i << "th record of set A, " << j
+           << "th record of set B" << endl;
+      bool er = isMatch(cc, keyPair, plaintextsA[i], plaintextsB[j], threshold);
+      if (er) {
+        psi += 1;
+        cout << "Match found between: " << get<1>(setA[i]) << " and "
+             << get<1>(setB[j]) << endl;
+      }
     }
   }
 
-  cout << "Total # of records with jaccard >= " << threshold << ": " << psi << endl;
+  cout << "Total # of records with jaccard >= " << threshold << ": " << psi
+       << endl;
 }
 
-bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair, Plaintext recA, Plaintext recB, float threshold) {
+bool isMatch(CryptoContext<DCRTPoly> cc, LPKeyPair<DCRTPoly> keyPair,
+             Plaintext recA, Plaintext recB, float threshold) {
+
+  auto start = std::chrono::high_resolution_clock::now();
+
   float overlap = 0;
   Ciphertext<DCRTPoly> cipherB = cc->Encrypt(keyPair.publicKey, recB);
+
   auto d = cc->EvalSub(recA, cipherB);
   Plaintext decryptResult;
   cc->Decrypt(keyPair.secretKey, d, &decryptResult);
+  decryptResult->SetLength(recB->GetLength());
 
-  decryptResult->SetLength(recA->GetLength());
+  overlap += count(decryptResult->GetPackedValue().begin(),
+                   decryptResult->GetPackedValue().end(), 0);
 
-  for (int elem: decryptResult->GetPackedValue()) {
-    if (elem == 0)
-      overlap++;
+  int idx = 1;
+  vector<int64_t> a = recA->GetPackedValue();
+  while (idx < a.size()) {
+    std::rotate(a.begin(), a.begin() + 1, a.end());
+    recA = cc->MakePackedPlaintext(a);
+
+    auto d = cc->EvalSub(recA, cipherB);
+
+    Plaintext decryptResult;
+    cc->Decrypt(keyPair.secretKey, d, &decryptResult);
+    decryptResult->SetLength(recB->GetLength());
+
+    overlap += count(decryptResult->GetPackedValue().begin(),
+                     decryptResult->GetPackedValue().end(), 0);
+
+    idx++;
   }
 
   float jaccardSimilarity = (overlap) / ((recA->GetLength() + recB->GetLength()) - overlap);
 
-  cout << jaccardSimilarity << endl;
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+  cout << "time taken (s): " << duration.count() << " seconds" << endl;
+
+  cout << "jaccard similarity score: " << jaccardSimilarity << endl;
 
   if (jaccardSimilarity >= threshold) {
     return true;
-  } else{
+  } else {
     return false;
   }
-
+  return false;
 }
 
-/*
- * readFromCSVFile(string csvFilePath): reads in the two csv files, each
- * second-level vector is a single line in the csv file where each string in the
- * vector is a comma separated field in the input.
- */
 deque<pair<tuple<string, string>, vector<int64_t>>> readFromCSVFile(
     string csvFilePath) {
   csvstream csvin(csvFilePath);
@@ -125,8 +156,15 @@ deque<pair<tuple<string, string>, vector<int64_t>>> readFromCSVFile(
     string intermediate;
 
     while (getline(t, intermediate, ' ')) {
-      tokens.push_back(stoi(intermediate.substr(2)));
+      //            cout << "hex value: " << intermediate << endl;
+      uint64_t x;
+      std::stringstream ss;
+      ss << std::hex << intermediate;
+      ss >> x;
+      //            cout << "unsignted int value: " << x << endl;
+      tokens.push_back(x);
     }
+
     records.push_back(make_pair(ids, tokens));
   }
   return records;
